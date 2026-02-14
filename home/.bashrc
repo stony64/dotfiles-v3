@@ -11,7 +11,7 @@
 [[ $- != *i* ]] && return
 
 # --- 2. PROJEKT-UMGEBUNG ------------------------------------------------------
-export DF_REPO_ROOT="${DF_REPO_ROOT:-/opt/dotfiles}"
+export DF_REPO_ROOT="/opt/dotfiles"
 export DF_CORE="${DF_REPO_ROOT}/core.sh"
 
 # --- 3. KERN-BIBLIOTHEK LADEN -------------------------------------------------
