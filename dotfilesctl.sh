@@ -9,11 +9,11 @@
 set -euo pipefail
 
 # --- 1. KONFIGURATION & KONSTANTEN --------------------------------------------
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
+readonly REAL_PATH=$(readlink -f "${BASH_SOURCE[0]}")
+readonly SCRIPT_DIR="$(cd "$(dirname "$REAL_PATH")" && pwd)"
+readonly SCRIPT_NAME="$(basename "$REAL_PATH")"
 readonly DOTFILES_DIR="$SCRIPT_DIR"
-readonly TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
-readonly BACKUP_BASE="$HOME/.dotfiles-backup-$TIMESTAMP"
+
 
 # --- 2. HILFSFUNKTIONEN -------------------------------------------------------
 log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" >&2; }
