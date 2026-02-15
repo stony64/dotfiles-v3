@@ -162,7 +162,6 @@ tools() {
             "${DF_C_RED:-}" "${DF_C_RESET:-}"
     fi
 
-    _t_row "dutop"    "Top 10 Platzfresser (aktuell)"
     _t_row "path"     "Formatierten \$PATH anzeigen"
     _t_row "myip"     "Lokale & Öffentliche IP prüfen"
     _t_row "au"       "APT Update (Quick)"
