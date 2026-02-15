@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # ------------------------------------------------------------------------------
 # FILE:          .bashprompt
-# VERSION:       1.5.0
+# VERSION:       1.5.1
 # DESCRIPTION:   Git-aware PS1 mit Dirty/Remote/Exit-Code & PVE-Detection
 # AUTHOR:        Stony64
 # ------------------------------------------------------------------------------
 
-# --- FARBDEFINITIONEN (PS1-Maskiert für korrekte Zeilenumbrüche) --------------
+# --- FARBDEFINITIONEN (PS1-Maskiert) ------------------------------------------
 P_BLUE='\[\e[34m\]'
 P_GREEN='\[\e[32m\]'
 P_CYAN='\[\e[36m\]'
@@ -20,31 +20,31 @@ df_prompt_git() {
     # Schneller Check: Sind wir in einem Git-Repo?
     git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
 
-    local branch dirty remote ahead behind indicators=""
+    # Initialisierung gegen 'nounset' Fehler
+    local branch="" dirty="" remote="" ahead=0 behind=0 indicators="" remote_name=""
 
-    # Branch-Name oder Commit-Hash
+    # Branch-Name ermitteln
     branch=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)
-    [[ -n "$branch" ]] || return 0
+    [[ -z "$branch" ]] && return 0
 
-    # Dirty Status: git diff-files ist wesentlich schneller als git status
-    if ! git diff-files --quiet --ignore-submodules 2>/dev/null || \
-       ! git diff-index --cached --quiet HEAD --ignore-submodules 2>/dev/null; then
+    # Dirty Status prüfen
+    if [[ -n "$(git status --porcelain --ignore-submodules 2>/dev/null)" ]]; then
         dirty="${P_YELLOW}*"
     fi
 
     # Remote Upstream & Ahead/Behind
-    # Nutze '@{u}' mit Single-Quotes gegen SC1083
-    if remote_name=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null); then
-        remote=" ${P_CYAN}${remote_name%%/*}" # Nur Provider-Name (z.B. origin)
+    remote_name=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo "")
+    if [[ -n "$remote_name" ]]; then
+        remote=" ${P_CYAN}${remote_name%%/*}"
 
-        ahead=$(git rev-list --right-only --count '@{u}'..HEAD 2>/dev/null)
-        behind=$(git rev-list --left-only --count HEAD..'@{u}' 2>/dev/null)
+        ahead=$(git rev-list --right-only --count '@{u}'..HEAD 2>/dev/null || echo 0)
+        behind=$(git rev-list --left-only --count HEAD..'@{u}' 2>/dev/null || echo 0)
 
         [[ "$ahead" -gt 0 ]] && indicators+="${P_MAGENTA}+${ahead}"
         [[ "$behind" -gt 0 ]] && indicators+="${P_MAGENTA}-${behind}"
     fi
 
-    # Ausgabe des gesamten Git-Blocks
+    # Ausgabe
     printf ' %s(%s%s%s%s)%s' "${P_RESET}" "${P_YELLOW}${branch}" "${dirty}" "${remote}" "${indicators}" "${P_RESET}"
 }
 
@@ -55,15 +55,15 @@ HOST_COLOR="$P_CYAN"
 # Root-User ist immer rot zur Warnung
 [[ $EUID -eq 0 ]] && USER_COLOR="$P_RED"
 
-# Proxmox-Erkennung (Hostname oder Existenz des PVE-Filesystems)
+# Proxmox-Spezifisch: Hostname in Grün, falls PVE erkannt wird
 if [[ "$HOSTNAME" == *proxmox* || "$HOSTNAME" == *pve* || -d /etc/pve ]]; then
     HOST_COLOR="$P_GREEN"
 fi
 
 # --- EXIT-CODE INDICATOR ------------------------------------------------------
-# Wir integrieren den Exit-Code direkt in das PROMPT_COMMAND Array (Bash 4+)
 set_prompt_exit_code() {
     local EXIT_CODE=$?
+    # Wir speichern den Indikator in einer globalen Variable für PS1
     if [[ $EXIT_CODE -ne 0 ]]; then
         EXIT_IND="${P_RED}✘ ${P_RESET}"
     else
@@ -71,16 +71,14 @@ set_prompt_exit_code() {
     fi
 }
 
-# Sicherstellen, dass PROMPT_COMMAND andere Befehle nicht überschreibt
+# PROMPT_COMMAND sicher befüllen
 if [[ "$PROMPT_COMMAND" != *set_prompt_exit_code* ]]; then
     PROMPT_COMMAND="set_prompt_exit_code; ${PROMPT_COMMAND:-}"
 fi
 
-# --- PROMPT (Multi-Line) ------------------------------------------------------
-# Zeile 1: [Zeit] User@Host:Pfad (Git)
-# Zeile 2: Exit-Indikator $
-# Hinweis: $ wird durch \$ escaped, damit es literal bleibt und erst zur Laufzeit
-# durch Bash evaluiert wird (wichtig für die dynamische Git-Funktion).
+# --- PROMPT DEFINITION --------------------------------------------------------
+# Hinweis: Das doppelte Escaping \\$ bei der Git-Funktion sorgt dafür,
+# dass die Funktion bei JEDEM neuen Prompt aufgerufen wird.
 PS1="${P_CYAN}[${P_BLUE}\t${P_CYAN}] ${USER_COLOR}\u${P_RESET}@${HOST_COLOR}\h${P_RESET}:${P_BLUE}\w\$(df_prompt_git)
 \${EXIT_IND}\$ ${P_RESET}"
 
