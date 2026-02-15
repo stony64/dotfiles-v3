@@ -146,11 +146,28 @@ if command -v tree >/dev/null 2>&1; then
 fi
 
 tools() {
-    if command -v show_aliases >/dev/null 2>&1; then
-        show_aliases | head -30
-        echo ""
-        myip
+    # Korrektur SC2059: Variablen als Argumente für %s übergeben
+    printf '%sFramework Tools v%s:%s\n' \
+        "${DF_C_BLUE:-}" "${DF_PROJECT_VERSION:-3.6.3}" "${DF_C_RESET:-}"
+
+    _t_row() { printf '  %-10s → %s\n' "$1" "$2"; }
+
+    _t_row "reload"   "Shell-Konfiguration frisch einlesen"
+
+    if [[ -x "/usr/local/bin/dctl" ]]; then
+        _t_row "dctl" "Dotfiles Management Utility"
     else
-        alias
+        # Korrektur SC2059 für die Fehlermeldung
+        printf '  %sdctl       → [FEHLT ODER NICHT AUSFÜHRBAR]%s\n' \
+            "${DF_C_RED:-}" "${DF_C_RESET:-}"
     fi
+
+    _t_row "dutop"    "Top 10 Platzfresser (aktuell)"
+    _t_row "path"     "Formatierten \$PATH anzeigen"
+    _t_row "myip"     "Lokale & Öffentliche IP prüfen"
+    _t_row "au"       "APT Update (Quick)"
+    _t_row "au-full"  "APT Update + ZFS Scrub (Monatlich)"
+
+    echo ""
+    myip
 }
