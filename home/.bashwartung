@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ------------------------------------------------------------------------------
 # FILE:          .bashwartung
-# VERSION:       1.4.0
-# DESCRIPTION:   System-Wartung mit Trennung (Update vs. Scrub)
+# VERSION:       1.5.0
+# DESCRIPTION:   System-Wartung mit Background-Index & Resource-Optimization
 # AUTHOR:        Stony64
 # ------------------------------------------------------------------------------
 
@@ -20,12 +20,12 @@ _df_wartung_apt_common() {
 
     # Warte-Logik falls APT durch Unattended-Upgrades blockiert ist
     local retry=0
-    while fuser /var/lib/apt/lists/lock >/dev/null 2>&1 ; do
+    while fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock-front-end >/dev/null 2>&1; do
         if (( retry >= 6 )); then
-            df_log_error "APT ist dauerhaft blockiert. Abbruch."
+            df_log_error "APT ist dauerhaft blockiert (dpkg lock). Abbruch."
             return 1
         fi
-        df_log_warn "APT Lock aktiv (Hintergrund-Update?). Warte 10s..."
+        df_log_warn "APT Lock aktiv (Hintergrund-Update?). Warte 10s... ($((retry+1))/6)"
         sleep 10
         ((retry++))
     done
@@ -33,7 +33,6 @@ _df_wartung_apt_common() {
     df_log_info "APT: Synchronisiere Paketlisten..."
     apt-get update || { df_log_error "apt update fehlgeschlagen"; return 1; }
 
-    # Best Practice für Debian/Proxmox: full-upgrade
     df_log_info "APT: Installiere Updates (full-upgrade)..."
     apt-get full-upgrade -y || { df_log_error "apt upgrade fehlgeschlagen"; return 1; }
 
@@ -59,13 +58,12 @@ df_wartung_run() {
 
     # 2. HOST-SPEZIFISCH (Proxmox / ZFS)
     if [[ "$HOSTNAME" == *proxmox* || "$HOSTNAME" == *pve* || -d /etc/pve ]]; then
-        # PVE Templates (Immer)
         if command -v pveam >/dev/null 2>&1; then
             df_log_info "Proxmox: Update Appliance Manager..."
             pveam update || df_log_warn "pveam update fehlgeschlagen"
         fi
 
-        # ZFS Scrub: NUR im Full-Mode (Monatlich empfohlen)
+        # ZFS Scrub: NUR im Full-Mode
         if [[ "$mode" == "--full" ]]; then
             if command -v zpool >/dev/null 2>&1; then
                 local pools
@@ -85,10 +83,17 @@ df_wartung_run() {
         fi
     fi
 
-    # 3. LOCATE DB (Immer)
+    # 3. LOCATE DB (Optimiert)
     if command -v updatedb >/dev/null 2>&1; then
-        df_log_info "System: Aktualisiere Locate-Index..."
-        updatedb && df_log_success "Index aktualisiert."
+        if [[ "$mode" == "--full" ]]; then
+            df_log_info "System: Aktualisiere Locate-Index (Vordergrund)..."
+            updatedb && df_log_success "Index aktualisiert."
+        else
+            df_log_info "System: Starte Locate-Index Update im Hintergrund (Resource-Safe)..."
+            # ionice -c 3 sorgt für Idle-I/O-Priorität, nice für niedrige CPU-Last
+            nice -n 19 ionice -c 3 updatedb &
+            df_log_success "Index-Update läuft im Hintergrund weiter."
+        fi
     fi
 
     # 4. ABSCHLUSS & LOGGING
@@ -99,7 +104,7 @@ df_wartung_run() {
 
     # Log-Eintrag schreiben
     local logfile="/var/log/bashwartung.log"
-    if [[ -w "$(dirname "$logfile")" ]]; then
+    if [[ -d "$(dirname "$logfile")" ]]; then
         printf "%s | %s | Mode: %s | Duration: %ss\n" \
             "$(date '+%Y-%m-%d %H:%M:%S')" "$(hostname)" "$mode" "$duration" >> "$logfile" 2>/dev/null
     fi
