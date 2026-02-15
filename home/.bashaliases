@@ -63,7 +63,7 @@ alias df='df -hT -x tmpfs -x devtmpfs -x squashfs -x overlay'
 alias du='du -h'
 alias free='free -h --si'
 alias uptime='uptime -p'
-alias cls='clear && ls'
+alias cls='clear'
 
 alias sc='systemctl'
 alias jc='journalctl -n 50 --no-pager'
