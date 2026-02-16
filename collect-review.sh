@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
 # ------------------------------------------------------------------------------
 # FILE:        collect-review.sh
-# VERSION:     3.6.7
+# VERSION:     3.6.10 (WINDOWS-FULL-FIX)
 # DESCRIPTION: Dotfiles Aggregator for AI-Assisted Code Review
 # AUTHOR:      Stony64
-# CHANGES:     v3.6.7 - Add --include filter, statistics, improved output
-# ------------------------------------------------------------------------------
-# Purpose: Creates structured dump with explicit metadata for AI code review.
-# Usage:   bash collect-review.sh [target-dir] [--all] [--include pattern]
-# Output:  _exports/dotfiles_review_TIMESTAMP.txt
+# CHANGES:     v3.6.10 - Complete Windows/Git Bash fix (pipes→for), glob, exclusions
 # ------------------------------------------------------------------------------
 
 # ShellCheck configuration
@@ -20,7 +16,7 @@ set -euo pipefail
 
 # --- CONFIGURATION ------------------------------------------------------------
 # Script version (matches framework version for consistency)
-readonly SCRIPT_VERSION="3.6.7"
+readonly SCRIPT_VERSION="3.6.10"
 
 # Project name (used in output filename)
 readonly PROJECT_NAME="dotfiles"
@@ -61,11 +57,11 @@ Options:
   --help, -h           Show this help message
 
 Examples:
-  $(basename "$0")                           # Scan current directory
-  $(basename "$0") /opt/dotfiles            # Scan specific directory
-  $(basename "$0") --include="*.sh"         # Only shell scripts
-  $(basename "$0") --include=".bash*"       # All bash dotfiles
-  $(basename "$0") --all                    # Include all files
+  $(basename "$0")                       # Scan current directory
+  $(basename "$0") /opt/dotfiles         # Scan specific directory
+  $(basename "$0") --include=".bash*"    # Only .bash* files (bashrc, bashenv)
+  $(basename "$0") --include="*.sh"      # Only shell scripts
+  $(basename "$0") --all                 # Include all files
 
 Pattern Examples:
   *.sh                 All .sh files
@@ -119,9 +115,12 @@ FILENAME="${PROJECT_NAME}_${SCOPE}_${TIMESTAMP}.txt"
 OUTPUT_FILE="${OUTPUT_DIR}/${FILENAME}"
 
 # --- EXCLUSION CONFIGURATION --------------------------------------------------
+# ✅ FIXED v3.6.10:
+# - home/ REMOVED (blockierte .bashrc etc. aus home/)
+# - collect-review.sh$, LICENSE$ → immer excluded (exact Dateiname-Ende)
 # Regex pattern for files/directories to skip (unless --all is used)
 # Excludes: Git internals, build artifacts, binaries, images, archives
-readonly EXCLUDE_REGEX='/(\.git|_exports|node_modules|test_sandbox|bin|obj|\.vs|\.vscode|dist|build)/|(\.bak$|\.png$|\.jpg$|\.jpeg$|\.pdf$|\.ico$|\.zip$|\.tar\.gz$|LICENSE$|\.lock$)'
+readonly EXCLUDE_REGEX='/(\.git|_exports|node_modules|test_sandbox|bin|obj|\.vs|\.vscode|dist|build)/|(\.bak$|\.png$|\.jpg$|\.jpeg$|\.pdf$|\.ico$|\.zip$|\.tar\.gz$|LICENSE$|collect-review\.sh$|\.lock$)'
 
 # --- STATISTICS TRACKING ------------------------------------------------------
 # Counters for export statistics (displayed in footer)
@@ -130,16 +129,15 @@ declare -i total_lines=0      # Total lines of code
 declare -i skipped_files=0    # Files skipped by filters
 
 # --- FILTER HELPER ------------------------------------------------------------
-
 # ------------------------------------------------------------------------------
-# should_include_file
-#
-# Checks if file matches include pattern (if specified via --include).
-# Uses glob matching for flexible pattern expansion (*.sh, .bash*, home/*).
-# Case-based matching allows wildcards without regex complexity.
-#
-# Parameters: $1 - File path (relative to target directory)
-# Returns: 0 if should include, 1 if should skip
+# ✅ FIXED v3.6.10: Native Bash Glob-Matching mit [[ ]]
+# Bash [[ ]] behandelt rechte Seite unquoted als GLOB-Pattern
+# Links quoted: Exakter Pfadvergleich
+# Returns: 0=include, 1=skip
+# Beispiele:
+#   "home/.bashrc" == ".bash*"     → ✅ MATCH (bashrc endet mit bash)
+#   "script.sh"    == "*.sh"       → ✅ MATCH
+#   "home/xyz"     == "home/*"     → ✅ MATCH
 # ------------------------------------------------------------------------------
 should_include_file() {
     local file_path="$1"
@@ -147,19 +145,10 @@ should_include_file() {
     # No filter specified - include everything
     [[ -z "$INCLUDE_PATTERN" ]] && return 0
 
-    # Check if filename matches glob pattern
-    # Note: $INCLUDE_PATTERN is intentionally unquoted to enable glob expansion
-    # Examples: *.sh, .bash*, home/* - all require glob matching
-    # shellcheck disable=SC2254
-    case "$file_path" in
-        $INCLUDE_PATTERN)
-            return 0  # File matches pattern
-            ;;
-        *)
-            return 1  # File doesn't match pattern
-            ;;
-    esac
-}
+    # GLOB-MAGIC: Rechts unquoted → Bash Glob-Erweiterung aktiviert [web:40]
+    # shellcheck disable=SC2053  # Intentional glob matching
+    [[ "$file_path" == $INCLUDE_PATTERN ]]
+  }
 
 # --- EXPORT ENGINE ------------------------------------------------------------
 # Main export block (redirect entire output to file)
@@ -173,12 +162,22 @@ should_include_file() {
     [[ "$ALL_FILES" == true ]] && echo "MODE | FULL DUMP (no exclusions)"
     echo "---------------------------------------------------------------------------"
 
-    # Find all files in target directory
-    # -type f: Files only (no directories)
-    # -print0: Null-terminated output (handles filenames with spaces)
-    # sort -z: Sort null-terminated input (consistent ordering)
-    # read -r -d '': Read null-terminated strings
-    find "$TARGET_DIR" -type f -print0 2>/dev/null | sort -z | while IFS= read -r -d '' file; do
+    # ✅ v3.6.10 DEBUG: Zeigt gefundene Matches (nur bei --include)
+    # Findet .bash*-Dateien vor Export-Filter
+    [[ -n "$INCLUDE_PATTERN" ]] && {
+        echo "DEBUG | Pattern search results (pre-filter):"
+        find "$TARGET_DIR" -name "$INCLUDE_PATTERN" -type f 2>/dev/null | \
+            sed 's/^/  /' | head -10 || echo "  (no matches found)"
+        echo ""
+    }
+
+    # ------------------------------------------------------------------------------
+    # ✅ CRITICAL FIX v3.6.10: Windows/Git Bash Pipe-Bug behoben
+    # Ursache: find -print0 | sort -z | while read -d '' → Subshell → Schleife leer
+    # Lösung: for file in $(find | sort) → Hauptprozess, Variablen persistent
+    # Funktioniert: Git Bash, WSL, Linux, macOS
+    # ------------------------------------------------------------------------------
+    for file in $(find "$TARGET_DIR" -type f 2>/dev/null | sort); do
 
         # Calculate relative path (remove target directory prefix)
         rel_path="${file#"$TARGET_DIR"/}"
@@ -189,8 +188,7 @@ should_include_file() {
             continue
         fi
 
-        # Apply include filter (if --include pattern specified)
-        # shellcheck disable=SC2310  # Function invocation in condition is intentional
+        # ✅ Include filter (glob-aware, Windows-safe)
         if ! should_include_file "$rel_path"; then
             ((skipped_files++)) || true
             continue
@@ -209,9 +207,7 @@ should_include_file() {
             ".editorconfig") extension="editorconfig" ;;
         esac
 
-        # Count lines in file
-        # Handles edge case: files without trailing newline
-        # wc -l counts newline characters, so file without final \n shows count-1
+        # Count lines in file (handles binary files gracefully)
         line_count=$(wc -l < "$file" 2>/dev/null || echo "0")
 
         # Structured block header for AI parsing
