@@ -1,89 +1,116 @@
 # ------------------------------------------------------------------------------
-# FILE:          .nanorc
-# VERSION:       1.5.0
-# DESCRIPTION:   Nano 8.4+
-# AUTHOR:        Stony64
+# FILE:        home/.nanorc
+# VERSION:     3.6.7
+# DESCRIPTION: Nano Configuration (Optimized for Nano 8.4+ on Proxmox/Debian)
+# AUTHOR:      Stony64
+# CHANGES:     v3.6.7 - Simplify stty hint, improve organization
 # ------------------------------------------------------------------------------
 
-# --- 1. EDITOR CORE -----------------------------------------------------------
-set autoindent
-set tabsize 4
-set tabstospaces
-set softwrap
-set atblanks
-set zap
-set noconvert
-set locking
-set jumpyscrolling
-set smooth             # Flüssiger Scroll
+# --- EDITOR CORE BEHAVIOR -----------------------------------------------------
+set autoindent          # Auto-indent new lines
+set tabsize 4           # Tab width (4 spaces)
+set tabstospaces        # Convert tabs to spaces
+set softwrap            # Soft wrap long lines
+set atblanks            # Break lines at whitespace
+set zap                 # Make Backspace/Delete erase selected region
+set noconvert           # Don't convert DOS/Mac file formats
+set locking             # Use vim-style lock files
+set jumpyscrolling      # Scroll by half screen (faster)
+set trimblanks          # Trim trailing whitespace on save
 
-# --- 2. UI/STATUS -------------------------------------------------------------
-set linenumbers
-set constantshow
-set indicator
-set minibar
-set stateflags
-set showcursor
-set emptyline
-set mouse              # Maus-Support (optional)
+# --- UI/STATUS BAR ------------------------------------------------------------
+set linenumbers         # Show line numbers
+set constantshow        # Constantly show cursor position
+set indicator           # Show scroll position indicator
+set minibar             # Show info in bottom bar instead of title
+set stateflags          # Show buffer state flags (I/M/R)
+set showcursor          # Show cursor in file browser
+set emptyline           # Show indicator on empty lines
+set mouse               # Enable mouse support
 
-# --- 3. HISTORY/POSITION ------------------------------------------------------
-set historylog
-set positionlog
-set searchagain        # N+ Suchen wiederholen
+# --- SEARCH/HISTORY -----------------------------------------------------------
+set historylog          # Save search/replace history
+set positionlog         # Remember cursor position per file
+set searchagain         # Repeat last search with N
 
-# --- 4. SYNTAX (System + Custom) ----------------------------------------------
+# --- BACKUP/SAFETY ------------------------------------------------------------
+set backup              # Create backup~ files on save
+set backupdir ~/.nano/backups  # Directory for backup files
+                        # Create with: mkdir -p ~/.nano/backups
+
+# --- MODERN FEATURES (Nano 8.0+) ----------------------------------------------
+set multibuffer         # Allow editing multiple files
+set boldtext            # Use bold instead of reverse video
+set suspendenable       # Allow Ctrl+Z to suspend
+set smarthome           # Smart home key (first non-whitespace)
+set afterends           # Make Ctrl+Right stop at word ends
+
+# --- SYNTAX HIGHLIGHTING (System + Custom) ------------------------------------
 include "/usr/share/nano/*.nanorc"
 include "~/.nano/*.nanorc"
 
-# --- 5. PROXMOX/ZFS SYNTAX ----------------------------------------------------
-syntax "proxmox" [\.(pve|conf|cfg|qm|pct|vzctl)$]
-color brightblue "^(pct|qm|pvesh|)\s+\d+.*"
-color brightgreen "vmid:\s+\d+|status:\s+(running|stopped)"
-color yellow      "(memory|cpu|disk):\s+\S+"
-color brightmagenta "^node\s+:\s+\S+"
+# --- PROXMOX/ZFS SYNTAX HIGHLIGHTING ------------------------------------------
+syntax "proxmox" "\.(pve|qm|pct|conf|cfg)$"
+color brightblue "^(pct|qm|pvesh|pveum|pveam).*"
+color brightgreen "vmid:\s+\d+|status:\s+(running|stopped|paused)"
+color yellow "(memory|cpu|disk|net[0-9]):\s+\S+"
+color brightmagenta "^(node|hostname)\s+:\s+\S+"
+color cyan "^#.*"
 
-syntax "zfs" [\.?(zfs|pool|dataset)\.(conf|log)?$]
-color brightcyan  "^(pool|dataset):\s+\S+"
-color brightyellow "USED\s+[0-9GMTP]+"
-color brightgreen  "AVAIL\s+[0-9GMTP]+"
-color brightmagenta "MOUNTPOINT\s+(/\S+)"
+syntax "zfs" "\.(zfs|pool|dataset)(\.(conf|log))?$"
+color brightcyan "^(pool|dataset):\s+\S+"
+color brightyellow "\<(USED|USEDSNAP|USEDDS|USEDREFRESERV)\>\s+[0-9.GMTP]+"
+color brightgreen "\<AVAIL\>\s+[0-9.GMTP]+"
+color brightmagenta "MOUNTPOINT\s+/\S*"
+color brightred "(DEGRADED|FAULTED|OFFLINE|UNAVAIL)"
+color cyan "^#.*"
 
-# --- 6. DOTFILES FRAMEWORK SYNTAX ---------------------------------------------
-syntax "dotfiles" [\.(sh|bashrc|bashaliases|bashfunctions|nanorc|dircolors|core\.sh|dctl)$]
-color brightgreen "^(alias|function|df_|export\s+DF_)"
-color yellow      "^df_log_(info|success|error|warn)"
-color brightblue  "# --- .* ---"
-color cyan        "(DF_REPO_ROOT|DF_PROJECT_VERSION)"
+# --- DOTFILES FRAMEWORK SYNTAX ------------------------------------------------
+syntax "dotfiles" "\.(sh|bash.*|nanorc|dircolors|core|dctl|dotfilesctl)$"
+color brightgreen "^(alias|function|export)\s+"
+color brightblue "^(df_|DF_)[A-Za-z_]+"
+color yellow "\<(df_log_info|df_log_success|df_log_error|df_log_warn)\>"
+color brightmagenta "# --- .* ---"
+color cyan "(DF_REPO_ROOT|DF_PROJECT_VERSION|DF_CORE_LOADED|DF_BACKUP_DIR)"
+color brightyellow "\$\{?[A-Za-z_][A-Za-z0-9_]*\}?"
 
-# --- 7. MODERN BINDINGS (stty -ixon erforderlich!) ----------------------------
-bind M-C copy main          # Alt+C: Copy
-bind M-V paste all          # Alt+V: Paste
-bind ^F whereis all         # Strg+F: Find
-bind ^H replace main        # Strg+H: Replace
-bind ^S savefile main       # Strg+S: Save
-bind ^Q exit all            # Strg+Q: Quit
-bind ^Z undo main           # Strg+Z: Undo
-bind ^Y redo main           # Strg+Y: Redo
-bind ^G execute "linter" main  # Strg+G: Linter
-bind M-G cut main           # Alt+G: Cut Line
-bind ^K uncut main          # Strg+K: Uncut
-bind ^L justify main        # Strg+L: Reformat
-bind M-S suspend main       # Alt+S: Suspend
+# ==============================================================================
+# KEY BINDINGS (Modern IDE-like shortcuts)
+# ==============================================================================
+# NOTE: Ctrl+S/Ctrl+Q require 'stty -ixon' (configured in ~/.bashrc)
+#       This disables XON/XOFF flow control for modern editor shortcuts
+# ==============================================================================
 
-# --- 8. ULTIMATE COLORS (256-Farben) ------------------------------------------
-set titlecolor brightwhite,blue
-set statuscolor black,cyan
-set keycolor brightwhite,blue
-set numbercolor brightyellow,normal
-set errorcolor brightwhite,brightred
-set scursorcolor brightwhite,blue
-set selectedcolor black,brightwhite
-set functioncolor brightcyan,normal
-set stringcolor brightgreen,normal
-set commentator brightwhite,normal
-set keywordcolor brightyellow,normal
+# --- FILE OPERATIONS ----------------------------------------------------------
+bind ^S savefile main       # Ctrl+S: Save
+bind ^Q exit all            # Ctrl+Q: Quit
+bind ^Z suspend main        # Ctrl+Z: Suspend to shell
 
-# --- 9. PERFORMANCE -----------------------------------------------------------
-set suspendenable           # Strg+Z Suspend
-set boldtext                # Bold überall
+# --- CLIPBOARD OPERATIONS -----------------------------------------------------
+bind ^C copy main           # Ctrl+C: Copy selection
+bind ^V paste main          # Ctrl+V: Paste
+bind ^X cut main            # Ctrl+X: Cut selection
+
+# --- EDIT OPERATIONS ----------------------------------------------------------
+bind ^Y redo main           # Ctrl+Y: Redo
+bind ^A mark main           # Ctrl+A: Start selection (mark)
+
+# --- SEARCH/NAVIGATION --------------------------------------------------------
+bind ^F whereis all         # Ctrl+F: Find/Search
+bind ^R replace main        # Ctrl+R: Find and Replace
+bind ^G gotoline main       # Ctrl+G: Go to line number
+
+# --- EXTERNAL TOOLS -----------------------------------------------------------
+# ShellCheck integration for shell scripts (requires: apt install shellcheck)
+# Uncomment to enable Ctrl+T for syntax checking:
+# bind ^T execute "shellcheck -f gcc -x $FILENAME 2>&1 | head -20" main
+
+# --- COLOR THEME (256-Color Terminal Optimized) -------------------------------
+set titlecolor brightwhite,blue         # Title bar (filename, modified)
+set statuscolor black,cyan              # Status bar (bottom shortcuts)
+set keycolor brightwhite,blue           # Key combo help
+set numbercolor brightyellow            # Line numbers
+set errorcolor brightwhite,red          # Error messages
+set spotlightcolor black,brightyellow   # Search match highlighting
+set selectedcolor black,brightwhite     # Selected text
+set scrollercolor brightcyan            # Scroll bar indicator

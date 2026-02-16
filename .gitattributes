@@ -1,64 +1,155 @@
 # ------------------------------------------------------------------------------
-# FILE:          .gitattributes
-# VERSION:       1.3.0
-# DESCRIPTION:   Line-Endings + Binary Policy (Proxmox/Dotfiles/LaTeX + exec).
-# AUTHOR:        Stony64
+# FILE:        .gitattributes
+# VERSION:     3.6.7
+# DESCRIPTION: Line Endings + Binary Policy (Bash/Shell Framework focused)
+# AUTHOR:      Stony64
+# CHANGES:     v3.6.7 - Remove Python/JS/LaTeX (not in framework scope)
 # ------------------------------------------------------------------------------
 
 # --- GLOBAL AUTO DETECT + LF DEFAULT ------------------------------------------
 * text=auto eol=lf
 
 # --- SHELL/DOTFILES FRAMEWORK (EXECUTABLE + LF) -------------------------------
-*.sh                text eol=lf exec
-.bash*              text eol=lf
-dotfilesctl.sh      text eol=lf exec
-core.sh             text eol=lf exec
-.dircolors          text eol=lf
-.nanorc             text eol=lf
-.shellcheckrc       text eol=lf
-.bashwartung        text eol=lf exec
+# Executable scripts (shebang present)
+*.sh                  text eol=lf
+dotfilesctl.sh        text eol=lf
+core.sh               text eol=lf
+collect-review.sh     text eol=lf
+lib/*.sh              text eol=lf
+scripts/*.sh          text eol=lf
+
+# Sourced bash files (no shebang, no exec needed)
+*.bash                text eol=lf
+.bash*                text eol=lf
+.bashrc               text eol=lf
+.bashenv              text eol=lf
+.bashprompt           text eol=lf
+.bashaliases          text eol=lf
+.bashfunctions        text eol=lf
+.bashwartung          text eol=lf
+.bash_profile         text eol=lf
+.bash_logout          text eol=lf
+
+# Other dotfiles
+.dircolors            text eol=lf
+.nanorc               text eol=lf
+.editorconfig         text eol=lf
+.shellcheckrc         text eol=lf
 
 # --- CONFIGURATION (LF) -------------------------------------------------------
-*.{json,jsonc,yaml,yml,toml,conf,cfg,ini} text eol=lf
-.editorconfig       text eol=lf
-.gitignore          text eol=lf
-.gitattributes      text eol=lf
-*markdownlint*      text eol=lf
-bindings.json       text eol=lf
-settings.json       text eol=lf
+*.json                text eol=lf
+*.jsonc               text eol=lf
+*.yaml                text eol=lf
+*.yml                 text eol=lf
+*.toml                text eol=lf
+*.conf                text eol=lf
+*.cfg                 text eol=lf
+*.ini                 text eol=lf
+.gitignore            text eol=lf
+.gitattributes        text eol=lf
+*.markdownlint*       text eol=lf
+
+# VS Code
+.vscode/*.json        text eol=lf
+bindings.json         text eol=lf
+settings.json         text eol=lf
 
 # --- DOCUMENTATION (LF) -------------------------------------------------------
-*.{md,txt,mdx}      text eol=lf
-project-words.txt   text eol=lf
-LICENSE             text eol=lf
-README*             text eol=lf
-CHANGELOG*          text eol=lf
+*.md                  text eol=lf
+*.mdx                 text eol=lf
+*.txt                 text eol=lf
+*.rst                 text eol=lf
+*.org                 text eol=lf
+LICENSE               text eol=lf
+README*               text eol=lf
+CHANGELOG*            text eol=lf
+STYLEGUIDE*           text eol=lf
+
+# Project dictionary
+project-words.txt     text eol=lf
 
 # --- PROXMOX/MC/ZFS (CONFIG + DATA) -------------------------------------------
-*.pve               text eol=lf
-mc/ini              text eol=lf
-*.conf.d            text eol=lf
-*.zfs               binary
-*.pool              binary
-
-# --- LATEX (LF) ---------------------------------------------------------------
-*.{tex,latex}       text eol=lf
+*.pve                 text eol=lf
+mc/ini                text eol=lf
+*.conf.d              text eol=lf
+*.zfs                 binary
+*.pool                binary
 
 # --- WINDOWS FILES (CRLF) -----------------------------------------------------
-*.{bat,ps1,cmd}     text eol=crlf
+*.bat                 text eol=crlf
+*.cmd                 text eol=crlf
+*.ps1                 text eol=crlf
 
-# --- MAKEFILES (TAB HEILIG!) --------------------------------------------------
-[{Makefile,makefile,*.mk}] indent_style=tab indent_size=8 trim_trailing_whitespace=false
+# --- MAKEFILES (LF) -----------------------------------------------------------
+Makefile              text eol=lf
+makefile              text eol=lf
+*.mk                  text eol=lf
+*.mak                 text eol=lf
+GNUmakefile           text eol=lf
+
+# --- GIT CONFIG FILES (LF) ----------------------------------------------------
+.gitconfig            text eol=lf
+.gitmodules           text eol=lf
 
 # --- BINARY/MEDIA (NO TRANSFORM) ----------------------------------------------
-*.{png,jpg,jpeg,gif,webp,ico,svg,pdf,zip,7z,gz,tgz,lz4,rar,deb,rpm,AppImage,snap} binary
-Cargo.lock          text eol=lf
-package-lock.json   binary
-yarn.lock           text eol=lf
+# Images
+*.png                 binary
+*.jpg                 binary
+*.jpeg                binary
+*.gif                 binary
+*.webp                binary
+*.ico                 binary
+*.svg                 binary
+*.avif                binary
 
-# --- DEV TOOLS (LOCKFILES) ----------------------------------------------------
-*.lock              binary
-.env.*              text eol=lf
+# Documents
+*.pdf                 binary
 
-# --- GIT HUB ACTIONS ----------------------------------------------------------
-.github/workflows/*.yml text eol=lf
+# Archives
+*.zip                 binary
+*.7z                  binary
+*.gz                  binary
+*.tgz                 binary
+*.tar.gz              binary
+*.tar.xz              binary
+*.tar.bz2             binary
+*.tar.zst             binary
+*.lz4                 binary
+*.rar                 binary
+*.xz                  binary
+*.bz2                 binary
+*.zst                 binary
+
+# Packages
+*.deb                 binary
+*.rpm                 binary
+*.AppImage            binary
+*.snap                binary
+*.iso                 binary
+*.img                 binary
+*.qcow2               binary
+
+# --- LOCKFILES (BINARY = NO DIFF) ---------------------------------------------
+*.lock                binary
+Cargo.lock            binary
+package-lock.json     binary
+yarn.lock             binary
+pnpm-lock.yaml        binary
+poetry.lock           binary
+Gemfile.lock          binary
+
+# --- TEMPLATES/EXAMPLES -------------------------------------------------------
+*.example             text eol=lf
+*template*            text eol=lf
+
+# --- ENVIRONMENT FILES --------------------------------------------------------
+.env                  text eol=lf
+.env.*                text eol=lf
+
+# --- GITHUB ACTIONS -----------------------------------------------------------
+.github/workflows/*.yml   text eol=lf
+.github/workflows/*.yaml  text eol=lf
+
+# --- SPECIAL CASES ------------------------------------------------------------
+# Proxy bytes (diff safe)
+*.proxy-gitattributes binary

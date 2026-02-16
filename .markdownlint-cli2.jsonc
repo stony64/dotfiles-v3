@@ -1,40 +1,96 @@
 {
-    "globs": ["**/*.md", "README.md", "STYLEGUIDE.md"],
+    // --------------------------------------------------------------------------
+    // FILE:        .markdownlint-cli2.jsonc
+    // VERSION:     3.6.7
+    // DESCRIPTION: Markdown Linting Configuration for CLI/CI
+    // AUTHOR:      Stony64
+    // CHANGES:     3.6.7 - Enable fix: true for auto-fixing
+    // --------------------------------------------------------------------------
+    // Purpose: Validates Markdown files in CI/CD pipeline and local checks
+    // Used by: markdownlint-cli2 (GitHub Actions, pre-commit hooks)
+    // --------------------------------------------------------------------------
+    // --- FILE SELECTION -------------------------------------------------------
+    // Which Markdown files to lint
+    "globs": [
+        "**/*.md",
+        "README.md",
+        "STYLEGUIDE.md",
+        "CHANGELOG.md",
+        "docs/**/*.md"
+    ],
+    // Which files/directories to ignore
     "ignores": [
         "node_modules/**",
         ".git/**",
         "**/_exports/**",
         "**/*_local.md",
         "**/test_sandbox/**",
-        "home/**"
+        "home/**",
+        "**/backup/**",
+        "**/dist/**",
+        "**/build/**"
     ],
+    // --- LINTING RULES --------------------------------------------------------
+    // Same rules as .markdownlint.jsonc for consistency
     "config": {
+        // Heading structure
         "MD001": true,
-        "MD024": {
-            "siblings_only": true
+        "MD003": {
+            "style": "atx_closed"
         },
         "MD025": {
             "level": 1
         },
+        // List formatting
+        "MD004": {
+            "style": "dash"
+        },
         "MD007": {
             "indent": 4
         },
+        "MD029": {
+            "style": "one_or_ordered"
+        },
+        "MD032": true,
+        // Whitespace & line breaks
         "MD009": {
             "br_spaces": 2
         },
-        "MD013": false,
         "MD022": true,
-        "MD029": false,
         "MD031": true,
+        // Line length (disabled for tables)
+        "MD013": false,
+        // Duplicate headings
+        "MD024": {
+            "siblings_only": true
+        },
+        // HTML & inline code
         "MD033": false,
-        "MD032": true,
         "MD034": false,
+        // Code blocks
         "MD040": false,
-        "MD041": false
+        "MD046": {
+            "style": "fenced"
+        },
+        // Frontmatter
+        "MD041": false,
+        // Tables
+        "MD060": {
+            "style": "any"
+        }
     },
+    // --- OUTPUT CONFIGURATION -------------------------------------------------
+    // Pretty formatter for human-readable output
     "outputFormatters": [
-        ["markdownlint-cli2-formatter-pretty"],
-        ["markdownlint-cli2-formatter-sarif"]
+        [
+            "markdownlint-cli2-formatter-pretty"
+        ]
     ],
-    "noInlineConfig": false
+    // Allow inline HTML comments to disable rules
+    "noInlineConfig": false,
+    // Automatically fix auto-fixable issues
+    // Fixes: MD009 (trailing spaces), MD022/MD031/MD032 (blank lines),
+    //        MD047 (final newline), etc.
+    // Use CLI: markdownlint-cli2 --fix "**/*.md"
+    "fix": true
 }

@@ -1,64 +1,71 @@
 #!/usr/bin/env bash
 # ------------------------------------------------------------------------------
-# FILE:        .bashaliases
-# VERSION:     1.9.3
-# DESCRIPTION: Professional Power Aliases & Shell Functions
-#              Optimized for Bash 4.0+, ShellCheck compliant, Proxmox-ready.
+# FILE:        home/.bashaliases
+# VERSION:     3.6.7
+# DESCRIPTION: Bash Aliases & Lightweight Shell Wrappers
 # AUTHOR:      Stony64
+# CHANGES:     v3.6.7 - Make ls arrays readonly, add force-push to push_upstream
 # ------------------------------------------------------------------------------
 
-# --- 1. CORE & SICHERHEIT -----------------------------------------------------
+# ShellCheck configuration
+# shellcheck source=/dev/null disable=SC2120,SC2154
 
-# DER SUDO-TRICK: Erlaubt Bash, das Wort nach sudo ebenfalls auf Aliase zu prüfen.
+# --- CORE & SECURITY ----------------------------------------------------------
+
+# SUDO TRICK: Allows Bash to check the word after sudo for aliases
 alias sudo='sudo '
 
-alias cp='cp -i --preserve=all'           # Interaktives Kopieren mit Metadaten
-alias mv='mv -i --preserve=all'           # Interaktives Verschieben
-alias rm='rm -i --preserve-root=always'   # Schutz gegen 'rm -rf /'
-alias ln='ln -i -v'                       # Interaktive und geschwätzige Links
-alias chown='chown --preserve-root'       # Root-Schutz für Besitzerwechsel
-alias chmod='chmod --preserve-root'       # Root-Schutz für Rechteänderung
-alias mkdir='mkdir -p -v'                 # Erstellt Pfad-Strukturen sofort
+alias cp='cp -i --preserve=all'            # Interactive copy with metadata
+alias mv='mv -i --preserve=all'            # Interactive move
+alias rm='rm -i --preserve-root=always'    # Protection against 'rm -rf /'
+alias ln='ln -i -v'                        # Interactive and verbose links
+alias chown='chown --preserve-root'        # Root protection
+alias chmod='chmod --preserve-root'        # Root protection
+alias mkdir='mkdir -p -v'                  # Creates path structures verbosely
 
-# --- 2. NAVIGATION ------------------------------------------------------------
+# --- NAVIGATION ---------------------------------------------------------------
 alias ..='cd ..'
-alias ...='cd ../..'
+alias ...='cd ../...'
 alias ....='cd ../../..'
-alias -- -='cd -'                         # Schnell zurück zum letzten Verzeichnis
+alias -- -='cd -'                          # Quick return to last directory
 alias home='cd ~'
 
-# --- 3. DYNAMISCHE LS-LOGIK (TOOL-AWARE) --------------------------------------
+# --- DYNAMIC LS LOGIC (TOOL-AWARE) --------------------------------------------
 
-# Wir ermitteln einmalig beim Laden, welches Tool verfügbar ist.
+# Detect available tool once at load time
 if command -v eza >/dev/null 2>&1; then
     _ls_tool="eza"
-    _ls_flags="--group-directories-first --git --icons"
-    _ls_time="--time-style=long-iso"
+    _ls_flags=(--group-directories-first --git --icons)
+    _ls_time=(--time-style=long-iso)
 elif command -v lsd >/dev/null 2>&1; then
     _ls_tool="lsd"
-    _ls_flags="--group-dirs-first --icon always"
-    _ls_time="--date=long-iso"
+    _ls_flags=(--group-dirs-first --icon always)
+    _ls_time=(--date=long-iso)
 else
     _ls_tool="ls"
-    _ls_time="--time-style=long-iso"
+    _ls_time=(--time-style=long-iso)
     if command ls --group-directories-first . >/dev/null 2>&1; then
-        _ls_flags="--color=auto --group-directories-first"
+        _ls_flags=(--color=auto --group-directories-first)
     else
-        _ls_flags="--color=auto"
+        _ls_flags=(--color=auto)
     fi
 fi
 
-# SC2248: Wir wollen Word-Splitting für $_ls_flags explizit zulassen.
-# shellcheck disable=SC2248
-ls() { command "$_ls_tool" $_ls_flags "$@"; }
-# shellcheck disable=SC2248
-ll() { command "$_ls_tool" $_ls_flags -la $_ls_time "$@"; }
-# shellcheck disable=SC2248
-la() { command "$_ls_tool" $_ls_flags -lA "$@"; }
-# shellcheck disable=SC2248
-l()  { command "$_ls_tool" $_ls_flags -lh "$@"; }
+# Protect ls configuration from modification (prevent accidental override)
+readonly _ls_tool
+readonly _ls_flags
+readonly _ls_time
 
-# --- 4. SYSTEM & RESSOURCEN ---------------------------------------------------
+# shellcheck disable=SC2120,SC2154
+ls() { command "$_ls_tool" "${_ls_flags[@]}" "$@"; }
+# shellcheck disable=SC2120,SC2154
+ll() { command "$_ls_tool" "${_ls_flags[@]}" -la "${_ls_time[@]}" "$@"; }
+# shellcheck disable=SC2120,SC2154
+la() { command "$_ls_tool" "${_ls_flags[@]}" -lA "$@"; }
+# shellcheck disable=SC2120,SC2154
+l()  { command "$_ls_tool" "${_ls_flags[@]}" -lh "$@"; }
+
+# --- SYSTEM & RESOURCES -------------------------------------------------------
 alias df='df -hT -x tmpfs -x devtmpfs -x squashfs -x overlay'
 alias du='du -h'
 alias free='free -h --si'
@@ -69,22 +76,14 @@ alias sc='systemctl'
 alias jc='journalctl -n 50 --no-pager'
 alias psmem='ps auxf | sort -nr -k 4 | head -15'
 
-# --- 5. DIAGNOSE & NETZWERK ---------------------------------------------------
+# --- DIAGNOSTICS & NETWORK ----------------------------------------------------
 alias journal='journalctl -n 50 --no-pager | less -R'
 alias dmesg='dmesg --color=always -H -T'
 alias psg='ps auxf | grep -v grep | grep -i -e VSZ -e'
 alias ports='ss -tulpn | grep LISTEN'
 alias ssh='TERM=xterm-256color ssh -o ServerAliveInterval=60'
 
-myip() {
-    if command -v df_myip >/dev/null 2>&1; then
-        df_myip
-    else
-        hostname -I | awk '{print $1}'
-    fi
-}
-
-# --- 6. TEXTVERARBEITUNG ------------------------------------------------------
+# --- TEXT PROCESSING ----------------------------------------------------------
 alias grep='grep --color=auto --binary-files=without-match'
 alias fgrep='grep -F --color=auto'
 alias egrep='grep -E --color=auto'
@@ -92,7 +91,7 @@ alias rgrep='grep -rni --exclude-dir={.git,node_modules}'
 alias nano='nano -c'
 alias less='less -R'
 
-# --- 7. GIT POWER-SHORTCUTS ---------------------------------------------------
+# --- GIT POWER-SHORTCUTS ------------------------------------------------------
 alias g='git'
 alias st='git status'
 alias co='git checkout'
@@ -101,72 +100,189 @@ alias cm='git commit -m'
 alias gd='git diff --stat'
 alias lg="git log --graph --pretty=format:'%C(yellow)%h%Creset -%C(auto)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit -15"
 
-# Upstream Push Logic
-gpsh() {
-    local branch
-    branch=$(git branch --show-current)
-    if ! git rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
-        git push --set-upstream origin "$branch"
-    else
-        git push
+# ------------------------------------------------------------------------------
+# push_upstream
+#
+# Intelligently pushes to upstream; sets tracking if missing.
+# Validates git repo and handles errors gracefully.
+#
+# Parameters:
+#   --force  Use force-with-lease (safe force push)
+#
+# Returns: 0 success, 1 failure
+#
+# Examples:
+#   push_upstream           # Normal push
+#   push_upstream --force   # Force push with lease (safe)
+# ------------------------------------------------------------------------------
+push_upstream() {
+    local current_branch
+    local use_force=false
+    local push_args=()
+
+    # Parse arguments
+    for arg in "$@"; do
+        case "$arg" in
+            --force|-f)
+                use_force=true
+                ;;
+            *)
+                printf '\033[31m[ERR]\033[0m Unknown argument: %s\n' "$arg" >&2
+                printf 'Usage: push_upstream [--force]\n' >&2
+                return 1
+                ;;
+        esac
+    done
+
+    # Verify we're in a git repository
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        printf '\033[31m[ERR]\033[0m Not a git repository\n' >&2
+        return 1
     fi
+
+    # Get current branch name
+    current_branch="$(git branch --show-current 2>/dev/null)"
+    if [[ -z "$current_branch" ]]; then
+        printf '\033[31m[ERR]\033[0m Failed to determine current branch\n' >&2
+        return 1
+    fi
+
+    # Check if upstream is set
+    if ! git rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
+        printf '\033[33m[INFO]\033[0m No upstream set, pushing with --set-upstream\n'
+
+        push_args=(--set-upstream origin "$current_branch")
+
+        # Add force-with-lease if requested
+        if [[ "$use_force" == true ]]; then
+            printf '\033[33m[WARN]\033[0m Force push with --force-with-lease\n'
+            push_args+=(--force-with-lease)
+        fi
+
+        if ! git push "${push_args[@]}"; then
+            printf '\033[31m[ERR]\033[0m Failed to push and set upstream\n' >&2
+            return 1
+        fi
+    else
+        # Upstream exists
+        if [[ "$use_force" == true ]]; then
+            printf '\033[33m[WARN]\033[0m Force pushing with --force-with-lease to %s\n' "$current_branch"
+
+            # force-with-lease is safer than --force:
+            # - Prevents overwriting other's work
+            # - Only succeeds if remote branch matches local expectation
+            if ! git push --force-with-lease; then
+                printf '\033[31m[ERR]\033[0m Force push failed (remote has changes?)\n' >&2
+                printf '\033[33m[TIP]\033[0m Try: git pull --rebase && push_upstream --force\n'
+                return 1
+            fi
+        else
+            # Normal push
+            if ! git push; then
+                printf '\033[31m[ERR]\033[0m Failed to push\n' >&2
+                return 1
+            fi
+        fi
+    fi
+
+    printf '\033[32m[OK]\033[0m Successfully pushed to upstream\n'
 }
 
-# --- 8. PROXMOX & STORAGE -----------------------------------------------------
+# Convenient alias for force push
+alias push-force='push_upstream --force'
+
+# --- PROXMOX & STORAGE --------------------------------------------------------
 alias pct='pct -logfile /tmp/pct-${USER}.log'
 alias qm='qm -logfile /tmp/qm-${USER}.log'
 alias zfs='zfs -p'
 alias zpool='zpool -m'
 
-zfslist() {
-    local pool
-    pool=$(zpool list -H -o name | head -1)
-    [[ -n "$pool" ]] && zfs list -o space,name,mountpoint -r "$pool"
+# ------------------------------------------------------------------------------
+# list_zfs_pools
+#
+# Lists ZFS filesystems for first available pool.
+#
+# Returns: 0 success, 1 if no pools found
+# ------------------------------------------------------------------------------
+list_zfs_pools() {
+    local pool_name
+
+    pool_name=$(zpool list -H -o name 2>/dev/null | head -1)
+
+    if [[ -z "$pool_name" ]]; then
+        printf '\033[33m[WARN]\033[0m No ZFS pools found\n' >&2
+        return 1
+    fi
+
+    zfs list -o space,name,mountpoint -r "$pool_name"
 }
 
-# --- 9. WARTUNG & UPDATES (Integration .bashwartung) --------------------------
+# --- MAINTENANCE & UPDATES (.bashwartung integration) -------------------------
 if [[ -f ~/.bashwartung ]]; then
-    # Täglich: Nur Paket-Updates
+    # Daily: Package updates only
     alias au='sudo bash -c "source ~/.bashwartung && df_wartung_run"'
-    # Monatlich: Updates + ZFS Scrub
+    # Monthly: Updates + ZFS Scrub
     alias au-full='sudo bash -c "source ~/.bashwartung && df_wartung_run --full"'
 fi
 
-# --- 10. MISC & FIXES ---------------------------------------------------------
-path() {
-    printf "%b\n" "${PATH//:/\\n}" | column
+# --- MISC & PRODUCTIVITY ------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# print_path
+#
+# Pretty-prints the PATH variable in column format.
+#
+# Returns: None
+# ------------------------------------------------------------------------------
+print_path() {
+    local IFS_OLD=$IFS
+    IFS=$'\n'
+    printf '%s\n' "${PATH//:/$'\n'}" | column -t
+    IFS=$IFS_OLD
 }
 
 alias f='find . -iname'
-alias chwon='chown'
-alias chmpod='chmod'
+alias chwon='chown'     # Common typo fix
+alias chmpod='chmod'    # Common typo fix
 
 if command -v tree >/dev/null 2>&1; then
     alias tree='tree -F --dirsfirst --filelimit 50 --gitignore'
 fi
 
+# ------------------------------------------------------------------------------
+# tools
+#
+# Displays available framework tools and IP information.
+# Integrates with core framework if available.
+#
+# Returns: None
+# ------------------------------------------------------------------------------
 tools() {
-    # Korrektur SC2059: Variablen als Argumente für %s übergeben
-    printf '%sFramework Tools v%s:%s\n' \
-        "${DF_C_BLUE:-}" "${DF_PROJECT_VERSION:-3.6.3}" "${DF_C_RESET:-}"
+    local title="Framework Tools v${DF_PROJECT_VERSION:-3.6.7}"
+    local color_blue="${DF_C_BLUE:-\033[34m}"
+    local color_reset="${DF_C_RESET:-\033[0m}"
 
-    _t_row() { printf '  %-10s → %s\n' "$1" "$2"; }
+    printf '%s%s%s\n\n' "$color_blue" "$title" "$color_reset"
 
-    _t_row "reload"   "Shell-Konfiguration frisch einlesen"
+    printf '  %-12s → %s\n' "reload" "Reload shell configuration"
+    printf '  %-12s → %s\n' "path" "Show formatted \$PATH"
+    printf '  %-12s → %s\n' "myip" "Check local and public IP"
 
-    if [[ -x "/usr/local/bin/dctl" ]]; then
-        _t_row "dctl" "Dotfiles Management Utility"
+    if [[ -x "/usr/local/bin/dctl" ]] || command -v dctl >/dev/null 2>&1; then
+        printf '  %-12s → %s\n' "dctl" "Dotfiles Management Utility"
     else
-        # Korrektur SC2059 für die Fehlermeldung
-        printf '  %sdctl       → [FEHLT ODER NICHT AUSFÜHRBAR]%s\n' \
-            "${DF_C_RED:-}" "${DF_C_RESET:-}"
+        printf '  %-12s → %s\n' "dctl" "[NOT INSTALLED]"
     fi
 
-    _t_row "path"     "Formatierten \$PATH anzeigen"
-    _t_row "myip"     "Lokale & Öffentliche IP prüfen"
-    _t_row "au"       "APT Update (Quick)"
-    _t_row "au-full"  "APT Update + ZFS Scrub (Monatlich)"
+    printf '  %-12s → %s\n' "au" "APT Update (Quick)"
+    printf '  %-12s → %s\n' "au-full" "APT Update + ZFS Scrub (Monthly)"
 
     echo ""
-    myip
+
+    # Show IP if function available (moved to .bashfunctions)
+    if command -v get_local_ip_address >/dev/null 2>&1; then
+        get_local_ip_address
+    elif command -v hostname >/dev/null 2>&1; then
+        printf 'Local IP: %s\n' "$(hostname -I | awk '{print $1}')"
+    fi
 }

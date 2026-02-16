@@ -1,89 +1,135 @@
-# Dotfiles Framework Style-Guide (v1.4.2)
+# Dotfiles Framework Style-Guide (v1.5.0) ##
 
-## 1. Dateistruktur & Header
+## 1. Dateistruktur & Header ##
 
-Jede Bash-Datei folgt diesem Aufbau (whitespace-sensitiv):
+**Jede** Framework-Datei folgt **exakt** diesem Template (whitespace-sensitiv):
 
-```bash
+````bash
 #!/usr/bin/env bash
 # ------------------------------------------------------------------------------
-# FILE:        <Pfad/Name relativ zu DF_REPO_ROOT>
-# VERSION:     <X.Y.Z>
-# DESCRIPTION: <Kurze Beschreibung auf Deutsch>
-# TYPE:        <EXECUTABLE | SOURCED MODULE>
+# FILE:        <Pfad/Name relativ zu Repo-Root> (z.B. home/.bashrc)
+# VERSION:     <X.Y.Z> (3 Komponenten, sync mit core.sh)
+# DESCRIPTION: <1-Satz Zweck auf Deutsch>
+# AUTHOR:      Stony64
 # ------------------------------------------------------------------------------
 
-```
+set -euo pipefail  # Exit on error, undefined vars, pipe failures
+````
 
-### Idempotency Guard (für Sourced Modules)
+### Idempotency Guard (Sourced Files **PFlicht**) ###
 
-Bibliotheken müssen ein mehrfaches Laden verhindern:
-
-```bash
-[[ -n "${DF_CORE_LOADED:-}" ]] && return 0
+````bash
+[[ "${DF_CORE_LOADED:-0}" -eq 1 ]] && return 0
 readonly DF_CORE_LOADED=1
+````
 
-```
+## 2. Dokumentation & Modul-Gliederung ##
 
----
+### Funktions-Header (Jede Funktion) ###
 
-## 2. Dokumentation & Modul-Struktur
-
-### Funktions-Header (Pflicht)
-
-Jede Funktion muss durch einen standardisierten Header dokumentiert sein.
-
-```bash
-# ZWECK: Kurze, präzise Beschreibung der Aufgabe.
-# PARAM: $1 (Typ) - Name/Bedeutung.
-# RETURN: 0 bei Erfolg, >0 bei Fehler (Statuscode).
-function_name() {
-    local param="$1"
+````bash
+# ------------------------------------------------------------------------------
+# backup_dotfiles
+# Creates timestamped backup → tar.gz in ~/.dotfiles_backups/
+# Returns: 0 success, 1 failure
+# ------------------------------------------------------------------------------
+backup_dotfiles() {
+    local backup_root="${BACKUP_DIR:?}"
     # ...
 }
+````
 
-```
+### Logische Sektionen (Block-Headers) ###
 
-### Logische Gruppierung
+````bash
+# --- 1. CONFIGURATION ---------------------------------------------------------
+# --- 2. CORE FUNCTIONS --------------------------------------------------------
+# --- 3. MAIN EXECUTION --------------------------------------------------------
+````
 
-Funktionen innerhalb eines Moduls sind mit Block-Überschriften zu gruppieren:
+## 3. Namenskonventionen ##
 
-```bash
-# --- 1. NETZWERK & IP ---------------------------------------------------------
+| Typ                | Präfix   | Beispiele                  | Verwendung                   |
+| ------------------ | -------- | -------------------------- | ---------------------------- |
+| **Framework-Core** | `df_`    | `df_log_info`, `df_deploy` | **Exklusiv** Framework-Logik |
+| **User-Tools**     | Kein     | `backup`, `deploy`, `dctl` | Terminal-freundlich          |
+| **Globals**        | `DF_`    | `DF_PROJECT_VERSION`       | Exportiert                   |
+| **Lokals**         | `lower_` | `local timestamp`          | `local` am Funktions-Start   |
 
-```
+## 4. Logging (Framework-Pflicht) ##
+
+**Exklusiv** `df_log_*` verwenden:
+
+````bash
+df_log_info "Deploying from $src_dir..."
+df_log_success "Backup: backup-$timestamp.tar.gz"
+df_log_error "Source directory missing!" >&2
+df_log_warn "File exists → backup created"
+````
+
+## 5. Bash Shebang & Strict Mode (P0) ##
+
+**Jede** Datei:
+
+````bash
+#!/usr/bin/env bash
+set -euo pipefail  # FAIL-FAST Standard
+````
+
+## 6. Security & Robustheit ##
+
+| Regel          | Code                    | Zweck                   |
+| -------------- | ----------------------- | ----------------------- |
+| **Quoting**    | `"$var"`                | Immer!                  |
+| **Null-Guard** | `${VAR:?}`              | Fail-fast required vars |
+| **Arrays**     | `"${arr[@]}"`           | Safe expansion          |
+| **Word-Split** | `for f in "${arr[@]}";` | Kein `*`!               |
+
+**Root-Safety:**
+
+````bash
+[[ $EUID -eq 0 ]] && { df_log_error "Root not permitted"; exit 1; }
+````
+
+## 7. GitHub Actions Integration ##
+
+**Versions sync:** `core.sh` → GitHub parses:
+
+````bash
+export DF_PROJECT_VERSION="3.6.5"
+````
+
+**Release-Trigger:** `git tag v3.6.5 && git push --tags`
+
+## 8. Statische Analyse (0 Warnings) ##
+
+| Tool             | Status     | Config                    |
+| ---------------- | ---------- | ------------------------- |
+| **ShellCheck**   | 0 Warnings | `.shellcheckrc`           |
+| **markdownlint** | SARIF      | `markdownlint-cli2.jsonc` |
+| **EditorConfig** | enforced   | `.editorconfig`           |
+
+**Disable nur begründet:**
+
+````bash
+# shellcheck disable=SC1073  # MC INI intentional
+````
+
+## 9. VSCode & Editor-Setup ##
+
+````jsonc
+"[shellscript]": {
+    "editor.defaultFormatter": "foxundermoon.shell-format",
+    "editor.formatOnSave": true
+}
+````
+
+## 10. Datei-Deploy (dctl) ##
+
+| Aktion                  | Backup             | Symlink    |
+| ----------------------- | ------------------ | ---------- |
+| **Bestehende Datei**    | `.bak_<timestamp>` | ✅ Ersetzt |
+| **Bestehender Symlink** | Kein Backup        | ✅ Ersetzt |
+| **Fehlt**               | -                  | ✅ Neu     |
 
 ---
-
-## 3. Namenskonventionen & Präfixe
-
-- **Präfix `df_**`: Exklusiv reserviert für Framework-Kernfunktionen (Logik, Install, Backup, Logging).
-- **Neutral (kein Präfix)**: Für allgemeine Benutzer-Werkzeuge und Helfer (z. B. `extract`, `hg`, `ff`), um die tägliche Nutzung im Terminal zu erleichtern.
-- **Globale Variablen**: `DF_UPPER_CASE` (z. B. `DF_REPO_ROOT`).
-- **Lokale Variablen**: `lower_case` via `local`, gruppiert am Funktionsanfang.
-
----
-
-## 4. Logging & UX (P2)
-
-Es ist zwingend die framework-eigene Logging-Suite zu verwenden:
-
-- `df_log_info`: Fortschritt/Informationen.
-- `df_log_success`: Erfolgsmeldungen.
-- `df_log_error`: Fehlermeldungen (Ausgabe erfolgt auf **stderr**).
-
----
-
-## 5. Security & Idempotenz (P0/P1)
-
-- **Quoting:** Jede Expansion wird gequotet `"$var"`.
-- **User-Daten:** `getent passwd` ist das Hard-Requirement für Linux-Systeme.
-- **Ownership:** Bei Root-Ausführung muss bei Verzeichniserstellung (`mkdir`) der Owner via `chown` auf den Ziel-User korrigiert werden.
-- **Backups:** Nur für echte Dateien (`.bak_<timestamp>`). Bestehende Symlinks werden ohne Backup ersetzt.
-
----
-
-## 6. Statische Analyse
-
-- Alle Dateien müssen ShellCheck bestehen (0 Warnungen).
-- Begründete Ausnahmen werden lokal annotiert: `# shellcheck disable=SCxxxx`.

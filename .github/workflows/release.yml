@@ -1,8 +1,9 @@
 # ------------------------------------------------------------------------------
-# FILE:          .github/workflows/release.yml
-# VERSION:       1.2.0
-# DESCRIPTION:   Auto GitHub Release mit Version aus core.sh
-# AUTHOR:        Stony64
+# FILE:        .github/workflows/release.yml
+# VERSION:     3.6.7
+# DESCRIPTION: Auto GitHub Release from core.sh Version + Changelog
+# AUTHOR:      Stony64 - Bash/Shell Dotfiles Framework
+# CHANGES:     v3.6.7 - Version mismatch is now error (not warning)
 # ------------------------------------------------------------------------------
 
 name: "🏷️ Create Release"
@@ -11,16 +12,17 @@ on:
   push:
     tags:
       - "v*"
-    paths:
-      - "core.sh"
-      - "dotfilesctl.sh"
-      - "CHANGELOG.md"
   workflow_dispatch:
     inputs:
       version:
-        description: 'Manuelle Version (Fallback)'
+        description: "Manual Version Override (e.g., 3.6.7)"
         required: false
-        default: ''
+        default: ""
+      prerelease:
+        description: "Mark as pre-release"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -28,76 +30,183 @@ concurrency:
 
 permissions:
   contents: write
-  pull-requests: read
+  checks: read
 
 jobs:
+  # --- PRE-CHECKS (Optional QA before release) --------------------------------
+  shellcheck:
+    name: "🔍 ShellCheck Validation"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🔍 Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: "."
+          severity: error
+          ignore_paths: "node_modules test_sandbox"
+
+  # --- RELEASE CREATION -------------------------------------------------------
   release:
     name: "🚀 Publish Release"
     runs-on: ubuntu-latest
-    needs: [lint-markdown, test]  # Vorherige Checks
+    needs: [shellcheck]
+    if: always() # Run even if shellcheck fails
 
     steps:
-      - name: 📥 Checkout
+      - name: 📥 Checkout Repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: 🏷️ Extract Version
+      - name: 🏷️ Extract Version from core.sh
         id: meta
         shell: bash
         run: |
-          # Robust Version aus core.sh
-          RAW_VER=$(awk -F'"' '/DF_PROJECT_VERSION=/{print $2; exit}' core.sh 2>/dev/null)
-          VERSION="${RAW_VER:-${{ github.ref_name }}-${{ github.event.inputs.version }}}"
+          # Parse DF_PROJECT_VERSION from core.sh (robust)
+          RAW_VER=$(awk -F'"' '/^export DF_PROJECT_VERSION=/{print $2; exit}' core.sh 2>/dev/null || echo "")
 
-          echo "DF_VER=$VERSION" >> $GITHUB_OUTPUT
-          echo "TAG=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          echo "version=$VERSION" >> $GITHUB_STEP_SUMMARY
+          # Determine final version
+          if [[ -n "${{ github.event.inputs.version }}" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [[ -n "$RAW_VER" ]]; then
+            VERSION="$RAW_VER"
+          else
+            # Fallback to tag name (strip 'v' prefix if present)
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+          fi
 
-          if [[ "$VERSION" != "${{ github.ref_name }}"* ]]; then
-            echo "::warning::Code v$RAW_VER ≠ Tag ${{ github.ref_name }}"
+          echo "DF_VER=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "TAG=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+          echo "::notice::Code Version: $RAW_VER"
+          echo "::notice::Final Version: $VERSION"
+          echo "::notice::Git Tag: ${{ github.ref_name }}"
+
+          # Version/Tag mismatch is now an ERROR (not warning)
+          # Ensures releases only happen when code version matches tag
+          if [[ "$RAW_VER" != "${{ github.ref_name }}"* && -n "$RAW_VER" ]]; then
+            echo "::error::Version Mismatch! Code v$RAW_VER ≠ Tag ${{ github.ref_name }}"
+            echo "::error::Please update DF_PROJECT_VERSION in core.sh to match tag"
+            exit 1
+          fi
+
+      - name: 📄 Generate Changelog from CHANGELOG.md
+        id: changelog
+        if: steps.meta.outputs.DF_VER != ''
+        shell: bash
+        run: |
+          VERSION="${{ steps.meta.outputs.DF_VER }}"
+
+          # Extract section from CHANGELOG.md (between version headers)
+          if [[ -f "CHANGELOG.md" ]]; then
+            CHANGELOG_SECTION=$(sed -n "/## \\[$VERSION\\]/,/^## \\[/p" CHANGELOG.md | sed '1d;$d' | sed '/^$/d')
+
+            if [[ -n "$CHANGELOG_SECTION" ]]; then
+              {
+                echo "changelog<<EOF"
+                echo "$CHANGELOG_SECTION"
+                echo "EOF"
+              } >> "$GITHUB_OUTPUT"
+              echo "::notice::Changelog extracted for v$VERSION"
+            else
+              echo "::warning::No changelog section found for v$VERSION"
+            fi
+          else
+            echo "::warning::CHANGELOG.md not found"
+          fi
+
+      - name: 🔍 Check Previous Jobs Status
+        id: qa_status
+        if: always()
+        run: |
+          # Check if shellcheck job ran and get its result
+          SHELLCHECK_STATUS="${{ needs.shellcheck.result || 'skipped' }}"
+
+          if [[ "$SHELLCHECK_STATUS" == "success" ]]; then
+            echo "shellcheck_icon=✅" >> "$GITHUB_OUTPUT"
+          elif [[ "$SHELLCHECK_STATUS" == "failure" ]]; then
+            echo "shellcheck_icon=❌" >> "$GITHUB_OUTPUT"
+          else
+            echo "shellcheck_icon=⏭️" >> "$GITHUB_OUTPUT"
           fi
 
       - name: 🚀 Create GitHub Release
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref_name }}
           name: "Dotfiles Framework v${{ steps.meta.outputs.DF_VER }}"
           body: |
-            ## 🛠️ **Dotfiles Framework v${{ steps.meta.outputs.DF_VER }}**
+            ## 🛠️ Dotfiles Framework v${{ steps.meta.outputs.DF_VER }}
 
-            **Tag**: `${{ github.ref_name }}` | **Code**: `${{ steps.meta.outputs.DF_VER }}`
+            **Tag**: `${{ github.ref_name }}` | **Code Version**: `${{ steps.meta.outputs.DF_VER }}`
 
-            ### ✅ CI Status
+            ### ✅ Quality Checks
             | Check | Status |
             |-------|--------|
-            | ShellCheck | ✅ |
-            | Markdown | ${{ needs.lint-markdown.result }} |
-            | Tests | ${{ needs.test.result }} |
+            | ShellCheck | ${{ steps.qa_status.outputs.shellcheck_icon }} |
+            | Framework Version | ✅ |
 
             ### 📦 Quick Install
+
+            **Standard Installation (recommended):**
             ```bash
             sudo git clone --depth=1 https://github.com/${{ github.repository }} /opt/dotfiles
-            sudo /opt/dotfiles/dotfilesctl.sh install $USER
+            cd /opt/dotfiles
+            sudo ./dotfilesctl.sh install $USER
             source ~/.bashrc
             ```
 
-            ### 🔗 Assets
-            - [dotfilesctl.sh](dotfilesctl.sh)
-            - [core.sh](core.sh)
-            - [Full Repo](https://github.com/${{ github.repository }}/archive/refs/tags/${{ github.ref_name }}.zip)
+            **Verify Installation:**
+            ```bash
+            dctl status      # Check symlink integrity
+            dctl version     # Show framework version
+            ```
+
+            ### 📋 Changelog
+            ${{ steps.changelog.outputs.changelog || '*(No changelog available - see CHANGELOG.md)*' }}
+
+            ### 🔗 Downloads & Assets
+            - 📄 [dotfilesctl.sh](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/dotfilesctl.sh) - Main installer
+            - 📄 [core.sh](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/core.sh) - Framework library
+            - 📚 [Documentation](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/README.md)
+            - 📦 [Source Code (zip)](https://github.com/${{ github.repository }}/archive/refs/tags/${{ github.ref_name }}.zip)
+            - 📦 [Source Code (tar.gz)](https://github.com/${{ github.repository }}/archive/refs/tags/${{ github.ref_name }}.tar.gz)
+
+            ### 🛠️ Requirements
+            - **OS**: Debian 11+, Ubuntu 20.04+, Proxmox VE 7+
+            - **Shell**: Bash 4.4+
+            - **Root Access**: Required for system-wide installation
 
             ---
-            *Auto-generated Release*
-          generate_release_notes: true
+            *Release automatically generated from [core.sh](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/core.sh) version*
+          generate_release_notes: false # Use custom changelog
           draft: false
-          prerelease: ${{ contains(github.ref_name, 'rc') || contains(github.ref_name, 'beta') }}
+          prerelease: ${{ github.event.inputs.prerelease == 'true' || contains(github.ref_name, 'rc') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
 
-      - name: 📊 Summary
+      - name: 📊 Release Summary
         if: always()
         run: |
-          echo "### Release ${{ job.status }}"
-          echo "**Version:** ${{ steps.meta.outputs.DF_VER || 'N/A' }}"
-          echo "**Tag:** ${{ github.ref_name }}"
-          echo "[View Release](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }})"
+          echo "### 🎉 Release Published!"
+          echo ""
+          echo "**Version:** v${{ steps.meta.outputs.DF_VER }}"
+          echo "**Tag:** \`${{ github.ref_name }}\`"
+          echo "**Status:** ${{ job.status }}"
+          echo ""
+          echo "#### 🔗 Links"
+          echo "- [View Release](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }})"
+          echo "- [View Code](https://github.com/${{ github.repository }}/tree/${{ github.ref_name }})"
+          echo "- [Compare Changes](https://github.com/${{ github.repository }}/compare/$(git describe --tags --abbrev=0 ${{ github.ref_name }}^)...${{ github.ref_name }})"
+          echo ""
+          echo "#### 📦 Quick Install Command"
+          echo "\`\`\`bash"
+          echo "sudo git clone --depth=1 https://github.com/${{ github.repository }} /opt/dotfiles && sudo /opt/dotfiles/dotfilesctl.sh install \$USER"
+          echo "\`\`\`"

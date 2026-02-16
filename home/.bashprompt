@@ -1,76 +1,171 @@
 #!/usr/bin/env bash
 # ------------------------------------------------------------------------------
-# FILE:          .bashprompt
-# VERSION:       1.5.5 (Final Clean Version)
-# DESCRIPTION:   Git-aware PS1 mit korrektem Escaping für Bash
+# FILE:        home/.bashprompt
+# VERSION:     3.6.6
+# DESCRIPTION: Git-Aware PS1 Prompt with Exit Code & Branch Status
+# AUTHOR:      Stony64
+# CHANGES:     v3.6.6 - Added idempotency guard, robustified PROMPT_COMMAND
 # ------------------------------------------------------------------------------
 
-# 1. Reine ANSI-Farben für die Verwendung in Funktionen (printf)
-# Wir nutzen hier keine \[ \], da diese nur für den PS1-String selbst sind.
-C_RED='\033[31m'
-C_GREEN='\033[32m'
-C_BLUE='\033[34m'
-C_CYAN='\033[36m'
-C_YELLOW='\033[33m'
-C_MAGENTA='\033[35m'
-C_RESET='\033[0m'
+# ShellCheck configuration
+# shellcheck source=/dev/null disable=SC2034
 
-# 2. Git-Status Funktion
-# Gibt den String ohne PS1-Maskierung zurück
+# --- IDEMPOTENCY GUARD --------------------------------------------------------
+# Prevents multiple loading and PROMPT_COMMAND duplication
+[[ -n "${DF_BASHPROMPT_LOADED:-}" ]] && return 0
+readonly DF_BASHPROMPT_LOADED=1
+
+# --- COLOR DEFINITIONS --------------------------------------------------------
+# Pure ANSI colors for use in functions (printf)
+# No \[ \] here - those are only for PS1 string itself
+
+readonly C_RED='\033[31m'
+readonly C_GREEN='\033[32m'
+readonly C_BLUE='\033[34m'
+readonly C_CYAN='\033[36m'
+readonly C_YELLOW='\033[33m'
+readonly C_MAGENTA='\033[35m'
+readonly C_RESET='\033[0m'
+
+# PS1-masked colors (with \[ \] for proper line wrapping)
+readonly P_BLUE='\[\033[34m\]'
+readonly P_GREEN='\[\033[32m\]'
+readonly P_CYAN='\[\033[36m\]'
+readonly P_RED='\[\033[31m\]'
+readonly P_RESET='\[\033[0m\]'
+
+# --- GIT STATUS FUNCTION ------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# df_prompt_git
+#
+# Returns PS1-ready string for current Git repository status.
+#
+# Components:
+#   - Branch name (yellow)
+#   - '*' indicator if working tree is dirty (yellow)
+#   - Remote tracking branch (cyan)
+#   - Ahead/behind counts (magenta +N/-N)
+#
+# Parameters: None
+# Returns: Formatted Git status string, empty if not in Git repo
+# ------------------------------------------------------------------------------
 df_prompt_git() {
-    git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
-    local branch dirty="" remote="" ahead=0 behind=0 indicators=""
+    # Check if inside Git repository
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        return 0
+    fi
 
-    branch=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)
+    local branch
+    local dirty=""
+    local remote=""
+    local indicators=""
+
+    # Get current branch or short SHA
+    branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+    if [[ -z "$branch" ]]; then
+        branch=$(git rev-parse --short HEAD 2>/dev/null)
+    fi
     [[ -z "$branch" ]] && return 0
 
-    if ! git diff --quiet 2>/dev/null; then dirty="${C_YELLOW}*"; fi
+    # Check for uncommitted changes (dirty working tree)
+    if ! git diff --quiet 2>/dev/null; then
+        dirty="${C_YELLOW}*"
+    fi
 
+    # Get upstream tracking information
     local upstream
-    upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo "")
+    upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)
+
     if [[ -n "$upstream" ]]; then
+        # Extract remote name (before first /)
         remote=" ${C_CYAN}${upstream%%/*}"
+
+        # Get ahead/behind counts
         local counts
-        counts=$(git rev-list --left-right --count HEAD..."$upstream" 2>/dev/null || echo "0 0")
-        ahead=$(echo "$counts" | awk '{print $1}')
-        behind=$(echo "$counts" | awk '{print $2}')
-        [[ ${ahead:-0} -gt 0 ]] && indicators+="${C_MAGENTA}+${ahead}"
-        [[ ${behind:-0} -gt 0 ]] && indicators+="${C_MAGENTA}-${behind}"
+        local ahead
+        local behind
+
+        counts=$(git rev-list --left-right --count HEAD..."$upstream" 2>/dev/null)
+        if [[ -n "$counts" ]]; then
+            read -r ahead behind <<< "$counts"
+            [[ ${ahead:-0} -gt 0 ]] && indicators+="${C_MAGENTA}+${ahead}"
+            [[ ${behind:-0} -gt 0 ]] && indicators+="${C_MAGENTA}-${behind}"
+        fi
     fi
 
-    printf ' %s(%s%s%s%s)%s' "${C_RESET}" "${C_YELLOW}${branch}" "${dirty}" "${remote}" "${indicators}" "${C_RESET}"
+    # Return formatted Git status
+    printf ' %s(%s%s%s%s)%s' \
+        "${C_RESET}" \
+        "${C_YELLOW}${branch}" \
+        "${dirty}" \
+        "${remote}" \
+        "${indicators}" \
+        "${C_RESET}"
 }
 
-# 3. Exit-Code Indikator
-# Speichert nur den rohen Farb-String
+# --- EXIT CODE INDICATOR ------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# set_prompt_exit_code
+#
+# Updates global EXIT_INDICATOR with last command's exit code.
+# Shows red colored exit code if non-zero, empty if zero.
+# Called automatically via PROMPT_COMMAND before each prompt.
+#
+# Parameters: None
+# Returns: None
+# Side Effects: Sets global EXIT_INDICATOR variable
+# ------------------------------------------------------------------------------
 set_prompt_exit_code() {
-    local EXIT=$?
-    if [[ $EXIT -ne 0 ]]; then
-        EXIT_IND="${C_RED}✘ ${C_RESET}"
+    local last_exit_code=$?
+
+    if [[ $last_exit_code -ne 0 ]]; then
+        EXIT_INDICATOR="${C_RED}${last_exit_code}${C_RESET} "
     else
-        EXIT_IND=""
+        EXIT_INDICATOR=""
     fi
 }
 
-# PROMPT_COMMAND sorgt für die Evaluierung des Exit-Codes vor jedem Prompt
-if [[ "$PROMPT_COMMAND" != *set_prompt_exit_code* ]]; then
-    PROMPT_COMMAND="set_prompt_exit_code; ${PROMPT_COMMAND:-}"
+# --- PROMPT_COMMAND SETUP -----------------------------------------------------
+
+# Safely append to PROMPT_COMMAND without duplication
+if [[ "${PROMPT_COMMAND:-}" != *"set_prompt_exit_code"* ]]; then
+    if [[ -n "${PROMPT_COMMAND:-}" ]]; then
+        # Append with semicolon separator
+        PROMPT_COMMAND="set_prompt_exit_code; ${PROMPT_COMMAND}"
+    else
+        PROMPT_COMMAND="set_prompt_exit_code"
+    fi
 fi
+export PROMPT_COMMAND
 
-# 4. Die PS1-Zuweisung
-# Hier ist das Escaping entscheidend:
-# \[ \] umschließt alle nicht-druckbaren Zeichen (Farben).
-# \${EXIT_IND} wird zur Laufzeit expandiert.
-# \$(df_prompt_git) wird bei jedem Enter-Druck ausgeführt.
+# --- PS1 CONSTRUCTION ---------------------------------------------------------
 
-# Wir definieren die maskierten Farben hier lokal für die PS1
-P_BLUE='\[\033[34m\]'
-P_GREEN='\[\033[32m\]'
-P_CYAN='\[\033[36m\]'
-P_RED='\[\033[31m\]'
-P_RESET='\[\033[0m\]'
+# Format: [HH:MM:SS] user@host:path (git:branch*) [exit_code]
+# $
+#
+# Components:
+#   - [HH:MM:SS]     : Cyan brackets, blue time
+#   - user@host      : Red user, green host
+#   - :path          : Blue working directory
+#   - (git:branch*)  : Dynamic Git status (yellow branch, dirty indicator)
+#   - [exit_code]    : Red exit code if last command failed
+#   - $              : Prompt symbol ($ for user, # for root)
+#
+# Critical: \[ \] wraps all ANSI escape sequences for correct line wrapping
+# \$(df_prompt_git) is re-executed on each prompt render
+# \${EXIT_INDICATOR} expands dynamically from PROMPT_COMMAND
 
-PS1="${P_CYAN}[${P_BLUE}\t${P_CYAN}] ${P_RED}\u${P_RESET}@${P_GREEN}\h${P_RESET}:${P_BLUE}\w\$(df_prompt_git)
-\[\033[0m\]\${EXIT_IND}\$ ${P_RESET}"
+PS1="${P_CYAN}[${P_BLUE}\t${P_CYAN}] "
+PS1+="${P_RED}\u${P_RESET}@${P_GREEN}\h${P_RESET}"
+PS1+=":${P_BLUE}\w"
+PS1+="\$(df_prompt_git)"
+PS1+="\n${P_RESET}\${EXIT_INDICATOR}\$ ${P_RESET}"
 
 export PS1
+
+# --- PS2 (CONTINUATION PROMPT) ------------------------------------------------
+# Used for multi-line commands
+PS2="${P_CYAN}→ ${P_RESET}"
+export PS2

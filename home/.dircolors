@@ -1,8 +1,9 @@
 # ------------------------------------------------------------------------------
-# FILE:          .dircolors
-# VERSION:       1.3.0
-# DESCRIPTION:   LS-Farben
-# AUTHOR:        Stony64
+# FILE:        home/.dircolors
+# VERSION:     3.6.7
+# DESCRIPTION: LS Colors (Proxmox/Debian 256-color optimized)
+# AUTHOR:      Stony64
+# CHANGES:     v3.6.7 - Dim .swp files, improved temp file colors
 # ------------------------------------------------------------------------------
 
 # --- GLOBAL TERM SUPPORT ------------------------------------------------------
@@ -11,30 +12,37 @@ TERM xterm-256color
 TERM screen
 TERM screen-256color
 TERM tmux
+TERM tmux-256color
 TERM linux
 TERM kitty
 TERM alacritty
+TERM foot
+TERM wezterm
 
-# --- ANSI BASE (Bold/Background/Security) -------------------------------------
+# --- ANSI BASE (Security/Permissions) -----------------------------------------
 RESET 0
-DIR 01;34                           # Verzeichnisse: Bold Blue
-LINK 01;36                          # Symlinks: Bold Cyan
-MULTIHARDLINK 00
-FIFO 40;33
-SOCK 01;35
-DOOR 01;35
-BLK 40;33;01                        # Block: Yellow BG Bold
-CHR 40;33;01                        # Char: Yellow BG Bold
-ORPHAN 40;31;01                     # Broken Links: Red BG
-MISSING 00;00;01                    # Missing: Bold Default
-SETUID 37;41                        # SUID: Red BG White
-SETGID 30;43                        # SGID: Yellow BG Black
-CAPABILITY 30;41                    # Caps: Red BG Black
-STICKY_OTHER_WRITABLE 30;42         # Sticky Writable: Green BG Black
-OTHER_WRITABLE 34;42                # Writable: Green BG Blue
-STICKY 37;44                        # Sticky: Blue BG White
+NORMAL 00
+FILE 00
 
-# --- ARCHIVE (Red/Orange) -----------------------------------------------------
+DIR 01;34                       # Directories: Bold Blue
+LINK 01;36                      # Symlinks: Bold Cyan
+MULTIHARDLINK 00
+FIFO 40;33                      # Pipe: Yellow BG
+SOCK 01;35                      # Socket: Magenta
+DOOR 01;35                      # Door: Magenta
+BLK 40;33;01                    # Block device: Yellow BG Bold
+CHR 40;33;01                    # Char device: Yellow BG Bold
+ORPHAN 40;31;01                 # Broken symlink: Red BG Bold
+MISSING 00;00;01                # Missing: Bold Default
+SETUID 37;41                    # SUID: Red BG White
+SETGID 30;43                    # SGID: Yellow BG Black
+CAPABILITY 30;41                # Capabilities: Red BG Black
+STICKY_OTHER_WRITABLE 30;42     # Sticky writable: Green BG Black
+OTHER_WRITABLE 34;42            # World writable: Green BG Blue
+STICKY 37;44                    # Sticky: Blue BG White
+EXEC 01;32                      # Executable: Bold Green
+
+# --- ARCHIVES/COMPRESSED (Red) ------------------------------------------------
 .tar 01;31
 .tgz 01;31
 .tar.gz 01;31
@@ -47,50 +55,98 @@ STICKY 37;44                        # Sticky: Blue BG White
 .7z 01;31
 .rar 01;31
 .lz4 01;31
+.gz 01;31
+.bz2 01;31
+.xz 01;31
+.zst 01;31
+.lzma 01;31
 
 # --- IMAGES/MEDIA (Magenta) ---------------------------------------------------
+# Images
 .jpg 01;35
 .jpeg 01;35
 .png 01;35
 .gif 01;35
 .webp 01;35
+.avif 01;35
 .svg 01;35
+.ico 01;35
+.bmp 01;35
+
+# Video
 .mp4 01;35
 .mkv 01;35
+.avi 01;35
+.mov 01;35
+.webm 01;35
+
+# Audio
 .mp3 01;35
 .flac 01;35
+.wav 01;35
+.ogg 01;35
+.m4a 01;35
 
-# --- DOCS (Green/Yellow) ------------------------------------------------------
+# --- DOCUMENTS (Green/Yellow) -------------------------------------------------
 .pdf 00;32
 .doc 00;32
 .docx 00;32
-.txt 00
-.md 01;33
-.rst 01;33
-.org 01;33
+.odt 00;32
+.txt 00;90              # Plain text: Bright Black (dim)
+.md 01;33               # Markdown: Bold Yellow
+.mdx 01;33
+.rst 01;33              # reStructuredText
+.org 01;33              # Org-mode
 
-# --- SCRIPTS/CODE (Green/Cyan) ------------------------------------------------
+# --- SCRIPTS/EXECUTABLES (Green) ----------------------------------------------
+# Shell scripts
 .sh 01;32
 .bash 01;32
 .zsh 01;32
 .fish 01;32
+
+# Python
 .py 01;32
-.rb 01;32
-.lua 01;32
-.php 01;32
+.pyw 01;32
+.pyc 00;90              # Compiled Python: Bright Black (dim)
+.pyo 00;90
+
+# Other scripting
+.rb 01;32               # Ruby
+.lua 01;32              # Lua
+.php 01;32              # PHP
+.pl 01;32               # Perl
+.r 01;32                # R
+
+# --- COMPILED/SYSTEMS LANGUAGES (Cyan) ----------------------------------------
 .c 01;36
 .cpp 01;36
+.cc 01;36
+.cxx 01;36
 .h 01;36
-.rs 01;32
-.go 01;32
-.java 01;32
+.hpp 01;36
+.rs 01;36               # Rust
+.go 01;36               # Go
+.java 01;36             # Java
+.class 00;36            # Java bytecode
+
+# --- WEB LANGUAGES (Cyan) -----------------------------------------------------
 .js 01;36
+.mjs 01;36
 .ts 01;36
 .jsx 01;36
 .tsx 01;36
+.vue 01;36
+.html 01;36
+.htm 01;36
+.css 01;36
+.scss 01;36
+.sass 01;36
+.less 01;36
 
-# --- CONFIG (Blue/Cyan) -------------------------------------------------------
+# --- CONFIGURATION (Blue/Cyan) ------------------------------------------------
 .conf 00;36
+.config 00;36
 .cfg 00;36
 .ini 00;36
 .json 00;36
@@ -99,35 +155,103 @@ STICKY 37;44                        # Sticky: Blue BG White
 .yaml 01;33
 .yml 01;33
 .xml 00;36
-.env 40;33                       # Env: Yellow BG
-.DS_Store 40;31                  # Mac: Red BG
+.env 40;33              # Environment: Yellow BG (sensitive!)
+.env.local 40;33
+.env.example 00;36
 
-# --- DEV/TOOLS (Magenta/Yellow) -----------------------------------------------
-.nix 35                          # Nix
-.Dockerfile 01;34
+# System junk (Red BG - should be gitignored)
+.DS_Store 40;31
+Thumbs.db 40;31
+desktop.ini 40;31
+
+# --- PACKAGE MANAGERS/LOCKFILES (Dim - less important) -----------------------
+.lock 00;90
+package-lock.json 00;90
+yarn.lock 00;90
+pnpm-lock.yaml 00;90
+Cargo.lock 00;90
+Gemfile.lock 00;90
+poetry.lock 00;90
+Pipfile.lock 00;90
+
+# --- CONTAINER/DEVOPS (Blue/Cyan) ---------------------------------------------
+Dockerfile 01;34
 .dockerignore 01;31
-.kubeconfig 40;36                # K8s: Cyan BG
+docker-compose.yml 01;34
+docker-compose.yaml 01;34
+.kubeconfig 40;36       # Kubernetes: Cyan BG
 .helm 01;34
-.terraform 01;34
-.gitignore 00;36
+.tf 01;34               # Terraform
+.hcl 01;34
+.nomad 01;34
 
-# --- PROXMOX/ZFS (Blue/Green) -------------------------------------------------
-.pve 01;34                       # Proxmox Config
+# --- GIT (Cyan) ---------------------------------------------------------------
+.gitignore 00;36
+.gitattributes 00;36
+.gitmodules 00;36
+.gitconfig 00;36
+
+# --- EDITOR CONFIGS (Blue) ----------------------------------------------------
+.editorconfig 00;34
+.shellcheckrc 00;34
+.markdownlint.json 00;34
+.markdownlint.jsonc 00;34
+.prettierrc 00;34
+.eslintrc 00;34
+
+# --- PROXMOX/VIRTUALIZATION (Blue/Magenta) ------------------------------------
+.pve 01;34              # Proxmox config
+.qm 01;34               # QEMU VM
+.pct 01;34              # LXC container
 .vzctl 01;35
-.zfs 40;33                       # ZFS Pool
-.conf.d 01;34
-.log 00;37                       # Logs White
-.bak 40;31                       # Backup Red BG
+
+# --- ZFS/STORAGE (Yellow BG - caution) ----------------------------------------
+.zfs 40;33
+.pool 40;33
+.snapshot 40;33
+
+# --- LOGS/TEMP (Dim/BG) -------------------------------------------------------
+# Log files
+.log 00;37              # Logs: White
+
+# Temporary files (dimmed - low priority)
+.tmp 00;90              # Temp: Bright Black (dim)
+.temp 00;90
+.cache 00;90
+.pid 00;90
+
+# Backup files (Red BG - should be cleaned)
+.bak 40;31              # Backup: Red BG
 .bak_* 40;31
-.swp 40;35                       # Swap Magenta BG
-.tmp 40;37                       # Temp White BG
+.backup 40;31
+.old 40;31
+
+# Editor temporary files (dimmed - not important)
+.swp 00;90              # Vim swap: Bright Black (dim, unobtrusive)
+.swo 00;90              # Vim swap overflow: Bright Black
+.swn 00;90              # Vim swap additional: Bright Black
+*~ 00;90                # Editor backup files: Bright Black (dim)
+.#* 00;90               # Emacs lock files: Bright Black
+\#*\# 00;90             # Emacs auto-save: Bright Black
 
 # --- SHELL/DOTFILES (Green) ---------------------------------------------------
-.bash* 01;32
-.core.sh 01;36                   # Framework Cyan
-.dctl 01;32                      # Executable
-.zshrc 01;32
+.bash_profile 01;32
+.bash_login 01;32
+.bash_logout 01;32
 .bashrc 01;32
+.bashenv 01;32
+.bashprompt 01;32
+.bashaliases 01;32
+.bashfunctions 01;32
+.bashwartung 01;32
+.zshrc 01;32
+.zshenv 01;32
+.profile 01;32
+
+# Framework files (Bold Cyan)
+core.sh 01;36
+dotfilesctl.sh 01;36
+collect-review.sh 01;36
 
 # --- PACKAGES (Yellow) --------------------------------------------------------
 .deb 01;33
@@ -135,3 +259,21 @@ STICKY 37;44                        # Sticky: Blue BG White
 .AppImage 01;33
 .snap 01;33
 .flatpak 01;33
+.apk 01;33              # Alpine
+.pkg 01;33              # macOS
+
+# --- DISK IMAGES (Yellow) -----------------------------------------------------
+.iso 01;33
+.img 01;33
+.qcow2 01;33
+.vmdk 01;33
+.vdi 01;33
+
+# --- BUILD ARTIFACTS (Dim - should be ignored) --------------------------------
+.o 00;90                # Object files
+.so 00;90               # Shared objects
+.a 00;90                # Static libraries
+.dll 00;90              # Windows libraries
+.exe 01;31              # Windows executables
+.pyc 00;90              # Python bytecode
+.pyo 00;90              # Python optimized

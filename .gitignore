@@ -1,8 +1,9 @@
 # ------------------------------------------------------------------------------
-# FILE:          .gitignore
-# VERSION:       1.3.0
-# DESCRIPTION:   Dotfiles Framework Ignore (Proxmox/ZFS/Micro + Strict Whitelist).
-# Author:        Stony64
+# FILE:        .gitignore
+# VERSION:     3.6.7
+# DESCRIPTION: Dotfiles Framework Ignore (Bash/Shell focused, Proxmox/ZFS)
+# AUTHOR:      Stony64
+# CHANGES:     v3.6.7 - Remove Python/Node/Rust/unnecessary IDE patterns
 # ------------------------------------------------------------------------------
 
 # --- LOCAL/PRIVATE OVERRIDES --------------------------------------------------
@@ -14,87 +15,127 @@
 .gnupg/
 .env*
 .netrc
+id_rsa*
+*.pem
+*.key
+*.crt
 
-# --- EDITORS/IDEs (Keep Workspace Standards) ----------------------------------
+# --- EDITORS (Framework Development) ------------------------------------------
+# VS Code (primary development environment)
 .vscode/*
 !.vscode/settings.json
 !.vscode/extensions.json
 !.vscode/launch.json
 !.vscode/tasks.json
-!.vscode/project-words.txt
+.vscode/project-words.txt
 
-# Micro
+# Micro Editor (lightweight alternative)
 .config/micro/cache/
 *.micro*
 
-# Vim/Nano/Emacs
+# Vim/Nano/Emacs (terminal editors)
 *.swp
 *.swo
+*.swn
 *~
 *.bak
 *.old
 *.orig
 *.rej
 .autosave*
-.history/
+.vim/
+.viminfo
+.netrwhist
 
 # --- OS JUNK ------------------------------------------------------------------
 # macOS
 .DS_Store
 .AppleDouble
 .LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.TemporaryItems
+.VolumeIcon.icns
 
 # Windows
 Thumbs.db
 ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
+*.lnk
 
 # Linux
 .directory
 .fuse_hidden*
+.Trash-*/
+.nfs*
 
 # --- LOGS/TEMP/EXPORTS --------------------------------------------------------
 *.log
 *.tmp
+*.temp
 .cache/
 .dotfiles_state
 _exports/
+_backups/
 review_dump_*
 test_sandbox/
 tests/out/
+*.pid
 
-# --- PACKAGE MANAGERS ---------------------------------------------------------
-node_modules/
-yarn-error.log
-package-lock.json
-Cargo.lock
-
-# --- PROXMOX/ZFS --------------------------------------------------------------
+# --- PROXMOX/ZFS (System specific) --------------------------------------------
 pveproxy-*.log
-/tmp/pct.log
-/tmp/qm.log
+/tmp/pct-*.log
+/tmp/qm-*.log
 zfs-list.cache
 pvetm-status.log
+/var/log/pve*
+*.qcow2.tmp
+
+# --- BUILD/ARTIFACTS (Debian/Proxmox packages) --------------------------------
+*.deb
+*.tar.gz
+*.zip
+*.7z
+
+# --- CI/CD --------------------------------------------------------------------
+.github/workflows/*.log
+.github/ISSUE_TEMPLATE/
+.github/PULL_REQUEST_TEMPLATE/
 
 # --- WHITELIST CORE (EXPLICIT!) -----------------------------------------------
 # Framework Executables
 !dotfilesctl.sh
 !core.sh
+!collect-review.sh
 !lib/
-!lib/**/*
+!lib/**
+
+# Scripts
+!scripts/
+!scripts/**
 
 # Meta Configs
 !.editorconfig
 !.gitattributes
 !.gitignore
 !.shellcheckrc
-!.markdownlint*
-!markdownlint-cli2.jsonc
+!.markdownlint.jsonc
+!.markdownlint-cli2.jsonc
 
-# VSCode Standards
+# VS Code Standards (explicit whitelist)
 !.vscode/
-!.vscode/**/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# GitHub
+!.github/
+!.github/workflows/
+!.github/workflows/*.yml
+!.github/workflows/*.yaml
 
 # Dotfiles (Explicit!)
 !home/
@@ -104,18 +145,22 @@ pvetm-status.log
 !home/.bashaliases
 !home/.bashfunctions
 !home/.bashwartung
+!home/.bashrc
 !home/.dircolors
 !home/.nanorc
-!home/config/
-!home/config/**/*
+!home/.config/
+!home/.config/**
 
 # Documentation
 !STYLEGUIDE.md
 !README.md
 !CHANGELOG.md
+!LICENSE
 !docs/
-!docs/**/*
+!docs/**
 
 # Examples/Templates
 !*.example
 !*template*
+!examples/
+!examples/**

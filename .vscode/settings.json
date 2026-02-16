@@ -1,80 +1,220 @@
 {
-    // ------------------------------------------------------------------------------
-    // FILE:        .vscode/settings.json
-    // VERSION:     1.3.0
-    // DESCRIPTION: VS Code Workspace-Einstellungen für das Dotfiles-Framework.
-    // ------------------------------------------------------------------------------
-
-    "files.encoding": "utf8",
-    "files.eol": "\n",
-    "files.insertFinalNewline": true,
-    "files.trimTrailingWhitespace": true,
-    "files.autoSave": "off",
-    "files.autoSaveDelay": 1000,
-
-   "files.associations": {
-        ".bash*": "shellscript",
-        "*.sh": "shellscript",
-        ".shellcheckrc": "properties",
-        ".editorconfig": "properties",
-        ".gitattributes": "properties",
-        ".gitignore": "ignore",
-        ".nanorc": "properties",
-        ".dircolors": "properties",
-        "*.jsonc": "jsonc"
-    },
-
-    // --- SPRACHSPEZIFISCHE KONFIGURATIONEN ------------------------------------
-
-    "[shellscript]": {
-        "editor.tabSize": 4,
-        "editor.insertSpaces": true,
-        "editor.defaultFormatter": "JetBrains.resharper-code",
-        "editor.formatOnSave": true
-    },
-
-    "[powershell]": {
-        "editor.tabSize": 4,
-        "editor.insertSpaces": true,
-        "editor.defaultFormatter": "ms-vscode.powershell",
-        "editor.formatOnSave": true
-    },
-
-    "[latex]": {
-        "editor.tabSize": 2,
-        "editor.insertSpaces": true,
-        "editor.defaultFormatter": "James-Yu.latex-workshop",
-        "editor.formatOnSave": true
-    },
-
-    "[markdown]": {
-        "editor.wordWrap": "on",
-        "files.trimTrailingWhitespace": false,
-        "editor.defaultFormatter": "yzhang.markdown-all-in-one",
-        "editor.formatOnSave": true
-    },
-
-    // --- TOOL & EXTENSION EINSTELLUNGEN ---------------------------------------
-
-    "shellcheck.run": "onSave",
-    "shellcheck.useWorkspaceRootAsWorkdir": true,
-    "editor.stickyScroll.enabled": true,
-
-    "latex-workshop.view.pdf.viewer": "tab",
-    "latex-workshop.latex.recipe.default": "latexmk",
-    "latex-workshop.latex.autoClean.run": "onBuilt",
-
-    // --- RECHTSCHREIBPRÜFUNG (PROJECT DICTIONARY) -----------------------------
-
-    "cSpell.enabled": true,
-    "cSpell.language": "en,de",
-    "cSpell.dictionaries": ["project-words"],
-    "cSpell.customDictionaries": {
-        "project-words": {
-            "name": "project-words",
-            "path": "${workspaceFolder}/.vscode/project-words.txt",
-            "addWords": true,
-            "scope": "workspace"
-        }
+  // ============================================================================
+  // WORKSPACE SETTINGS - PROJECT-SPECIFIC ONLY!
+  // ============================================================================
+  //
+  // ⚠️  IMPORTANT: Personal preferences (theme, font size, keybindings, etc.)
+  //                belong in USER SETTINGS, NOT here!
+  //
+  //     User Settings (Ctrl+,): File → Preferences → Settings (User)
+  //     Workspace Settings: Only project-specific coding standards
+  //
+  // ============================================================================
+  // --------------------------------------------------------------------------
+  // FILE:        .vscode/settings.json (Workspace)
+  // VERSION:     3.6.7
+  // DESCRIPTION: VSCodium Workspace Settings (Bash/Shell Framework focused)
+  // AUTHOR:      Stony64
+  // LAST UPDATE: 2026-02-16
+  // CHANGES:     3.6.7 - Remove JS/TS/HTML/Terraform (not in framework scope)
+  // --------------------------------------------------------------------------
+  // Optimized for VSCodium (no MS telemetry/proprietary extensions)
+  // Framework Focus: Bash/Shell, C#, YAML/JSON, Markdown, LaTeX
+  // --------------------------------------------------------------------------
+  // --- FILES (UNIX Standards - Project Requirement) -------------------------
+  "files.encoding": "utf8",
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "files.autoSave": "off",
+  // --- FILE ASSOCIATIONS (Dotfiles-specific) --------------------------------
+  "files.associations": {
+    ".bash*": "shellscript",
+    "*.sh": "shellscript",
+    "*.bash": "shellscript",
+    ".shellcheckrc": "properties",
+    ".editorconfig": "properties",
+    ".gitattributes": "properties",
+    ".gitignore": "ignore",
+    ".nanorc": "properties",
+    ".dircolors": "properties",
+    "*.jsonc": "jsonc",
+    ".markdownlint.jsonc": "jsonc",
+    ".markdownlint-cli2.jsonc": "jsonc",
+    "mc/ini": "ini",
+    "dotfilesctl.sh": "shellscript",
+    "core.sh": "shellscript",
+    "collect-review.sh": "shellscript"
+  },
+  // --- SHELLSCRIPT (Project Core - 4 spaces) --------------------------------
+  "[shellscript]": {
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.defaultFormatter": "foxundermoon.shell-format",
+    "editor.formatOnSave": true,
+    "editor.rulers": [
+      78,
+      120
+    ]
+  },
+  // --- C# (Project Coding Style - 4 spaces) ---------------------------------
+  "[csharp]": {
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": true
+  },
+  // --- JSON/JSONC (Built-in - 2 spaces) -------------------------------------
+  "[json]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true,
+    "editor.defaultFormatter": "vscode.json-language-features",
+    "editor.formatOnSave": true
+  },
+  "[jsonc]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true,
+    "editor.defaultFormatter": "vscode.json-language-features",
+    "editor.formatOnSave": true
+  },
+  // --- YAML (Project Coding Style - 2 spaces) -------------------------------
+  "[yaml]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true,
+    "editor.defaultFormatter": "redhat.vscode-yaml",
+    "editor.formatOnSave": true
+  },
+  "yaml.format.enable": true,
+  "yaml.format.singleQuote": false,
+  "yaml.format.bracketSpacing": true,
+  // --- TOML (Config files - 2 spaces) ---------------------------------------
+  "[toml]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": true
+  },
+  // --- MARKDOWN (markdownlint + auto-fix) -----------------------------------
+  "[markdown]": {
+    "editor.wordWrap": "on",
+    "files.trimTrailingWhitespace": false,
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.markdownlint": "explicit"
     }
+  },
+  "markdownlint.config": {
+    "extends": ".markdownlint.jsonc"
+  },
+  "markdown.extension.toc.levels": "2..6",
+  "markdown.extension.list.indentationSize": "inherit",
+  // --- LATEX (Documentation - 2 spaces) -------------------------------------
+  "[latex]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true,
+    "editor.defaultFormatter": "James-Yu.latex-workshop",
+    "editor.formatOnSave": true
+  },
+  "latex-workshop.view.pdf.viewer": "tab",
+  "latex-workshop.latex.recipe.default": "latexmk",
+  "latex-workshop.latex.autoClean.run": "onBuilt",
+  // --- POWERSHELL (Windows - 4 spaces) --------------------------------------
+  "[powershell]": {
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true
+  },
+  // --- VBA (Microsoft Office - tabs) ----------------------------------------
+  "[vba]": {
+    "editor.tabSize": 4,
+    "editor.insertSpaces": false
+  },
+  // --- SHELLCHECK (Bash Linting - Project Rules) ---------------------------
+  "shellcheck.run": "onSave",
+  "shellcheck.useWorkspaceRootAsWorkdir": true,
+  "shellcheck.enable": true,
+  "shellcheck.executablePath": "shellcheck",
+  "shellcheck.ignorePatterns": {
+    "**/mc/**": true,
+    "**/*.ini": true
+  },
+  // --- SHELL-FORMAT (shfmt - Project Style: 4 spaces, case indent) ----------
+  "shellformat.flag": "-i 4 -ci -bn -sr",
+  // --- CSPELL (Project Dictionary) ------------------------------------------
+  "cSpell.enabled": true,
+  "cSpell.language": "en,de",
+  "cSpell.dictionaries": [
+    "project-words"
+  ],
+  "cSpell.customDictionaries": {
+    "project-words": {
+      "name": "project-words",
+      "path": "${workspaceFolder}/.vscode/project-words.txt",
+      "addWords": true,
+      "scope": "workspace"
+    }
+  },
+  // --- CODEIUM (AI Assistant - Project Languages) ---------------------------
+  "codeium.enableCodeLens": true,
+  "codeium.enableConfig": {
+    "*": true,
+    "shellscript": true,
+    "csharp": true,
+    "yaml": true,
+    "json": true,
+    "markdown": false
+  },
+  // --- SEARCH/EXPLORER (Project Structure) ----------------------------------
+  "search.exclude": {
+    "**/.git": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/_exports": true,
+    "**/_backups": true,
+    "**/test_sandbox": true
+  },
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true
+  },
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/_exports/**": true,
+    "**/_backups/**": true,
+    "**/dist/**": true,
+    "**/build/**": true
+  },
+  "search.followSymlinks": false,
+  "search.smartCase": true,
+  // --- REMOTE SSH (Project Server Platforms) --------------------------------
+  "remote.SSH.remotePlatform": {
+    "debian-server": "linux",
+    "proxmox": "linux"
+  },
+  "remote.SSH.showLoginTerminal": true,
+  "remote.SSH.useLocalServer": true,
+  // --- PROJECT MANAGER (Repository Defaults) --------------------------------
+  "projectManager.git.baseFolders": [
+    "${env:HOME}/Development/Repositories"
+  ],
+  "projectManager.sortList": "Name",
+  "projectManager.removeCurrentProjectFromList": false,
+  "projectManager.showProjectNameInStatusBar": true,
+  // --- TESTING (Test Explorer) ----------------------------------------------
+  "testExplorer.useNativeTesting": true,
+  "testExplorer.mergeSuites": true
+  // ============================================================================
+  // REMINDER: Personal Preferences → User Settings (Ctrl+,)
+  // ============================================================================
+  // This workspace file should ONLY contain:
+  //   ✅ Project coding standards (indentation, line endings)
+  //   ✅ Language-specific formatters
+  //   ✅ Project-specific linters/tools
+  //
+  // Put in USER SETTINGS instead:
+  //   ❌ Color themes, icon themes
+  //   ❌ Font family, font size
+  //   ❌ Keybindings
+  //   ❌ UI customizations (sidebar, minimap, etc.)
+  //   ❌ Terminal preferences
+  // ============================================================================
 }

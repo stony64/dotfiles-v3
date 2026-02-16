@@ -1,12 +1,35 @@
 #!/usr/bin/env bash
 # ------------------------------------------------------------------------------
-# FILE:          .bashwartung
-# VERSION:       1.5.0
-# DESCRIPTION:   System-Wartung mit Background-Index & Resource-Optimization
-# AUTHOR:        Stony64
+# FILE:        home/.bashwartung
+# VERSION:     3.6.7
+# DESCRIPTION: System Maintenance (APT, ZFS, Locate) with Lock Protection
+# AUTHOR:      Stony64
+# CHANGES:     v3.6.7 - Make lock timeout configurable, implement timeout check
 # ------------------------------------------------------------------------------
 
-# --- 0. INITIALISIERUNG (Standalone Logging) ----------------------------------
+# ShellCheck configuration
+# shellcheck source=/dev/null disable=SC2034
+
+# --- IDEMPOTENCY GUARD --------------------------------------------------------
+# Prevents multiple loading of this file
+[[ -n "${DF_BASHWARTUNG_LOADED:-}" ]] && return 0
+readonly DF_BASHWARTUNG_LOADED=1
+
+# --- CONFIGURATION ------------------------------------------------------------
+readonly WARTUNG_LOCKFILE="/var/run/bashwartung.lock"
+readonly WARTUNG_LOGFILE="/var/log/bashwartung.log"
+
+# Lock timeout configurable via environment variable (default: 3600s = 1h)
+# Examples:
+#   export DF_WARTUNG_LOCK_TIMEOUT=7200  # 2 hours
+#   export DF_WARTUNG_LOCK_TIMEOUT=1800  # 30 minutes
+readonly WARTUNG_LOCK_TIMEOUT="${DF_WARTUNG_LOCK_TIMEOUT:-3600}"
+
+# Maximum retries for lock acquisition (1 retry = 5 seconds)
+readonly WARTUNG_LOCK_RETRIES="${DF_WARTUNG_LOCK_RETRIES:-12}"  # Default: 60s total
+
+# --- BOOTSTRAP (LOGGING & UI) -------------------------------------------------
+# Provides fallback colored logging functions if core framework is missing
 if ! command -v df_log_error >/dev/null 2>&1; then
     df_log_error()   { printf '\033[31m[ERR]\033[0m %s\n' "$*" >&2; }
     df_log_success() { printf '\033[32m[OK]\033[0m %s\n' "$*"; }
@@ -14,100 +37,401 @@ if ! command -v df_log_error >/dev/null 2>&1; then
     df_log_warn()    { printf '\033[33m[!]\033[0m %s\n' "$*"; }
 fi
 
-# --- 1. APT HELFER ------------------------------------------------------------
-_df_wartung_apt_common() {
-    export DEBIAN_FRONTEND=noninteractive
+# --- LOCK MANAGEMENT ----------------------------------------------------------
 
-    # Warte-Logik falls APT durch Unattended-Upgrades blockiert ist
-    local retry=0
-    while fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock-front-end >/dev/null 2>&1; do
-        if (( retry >= 6 )); then
-            df_log_error "APT ist dauerhaft blockiert (dpkg lock). Abbruch."
+# ------------------------------------------------------------------------------
+# _acquire_lock
+#
+# Acquires exclusive lock to prevent parallel execution.
+# Uses flock with timeout and retry mechanism.
+#
+# Parameters: None
+# Returns: 0 success, 1 if lock acquisition failed
+# Side Effects: Sets file descriptor 200 for lock
+#
+# Configuration:
+#   DF_WARTUNG_LOCK_TIMEOUT  - Maximum lock duration (default: 3600s)
+#   DF_WARTUNG_LOCK_RETRIES  - Lock acquisition retries (default: 12 = 60s)
+# ------------------------------------------------------------------------------
+_acquire_lock() {
+    local lock_fd=200
+    local lock_file="$WARTUNG_LOCKFILE"
+    local retries=0
+    local max_retries="$WARTUNG_LOCK_RETRIES"
+
+    # Open lockfile for writing (create if needed)
+    eval "exec ${lock_fd}>${lock_file}"
+
+    # Try to acquire exclusive lock with retries
+    while ! flock -n "$lock_fd"; do
+        if (( retries >= max_retries )); then
+            df_log_error "Failed to acquire lock after $((max_retries * 5))s"
+            df_log_error "Another maintenance process is running or stuck"
+            df_log_info "Lock file: $lock_file"
+
+            # Show lock holder PID if available
+            if [[ -f "$lock_file" && -r "$lock_file" ]]; then
+                local lock_pid
+                lock_pid=$(<"$lock_file" 2>/dev/null)
+                if [[ -n "$lock_pid" ]] && ps -p "$lock_pid" >/dev/null 2>&1; then
+                    df_log_info "Lock held by PID: $lock_pid"
+                else
+                    df_log_warn "Stale lock detected (PID $lock_pid not running)"
+                    df_log_info "Remove manually: sudo rm $lock_file"
+                fi
+            fi
+
+            eval "exec ${lock_fd}>&-"
             return 1
         fi
-        df_log_warn "APT Lock aktiv (Hintergrund-Update?). Warte 10s... ($((retry+1))/6)"
-        sleep 10
-        ((retry++))
+
+        df_log_warn "Lock busy, waiting... (attempt $((retries+1))/$max_retries)"
+        sleep 5
+        ((retries++))
     done
 
-    df_log_info "APT: Synchronisiere Paketlisten..."
-    apt-get update || { df_log_error "apt update fehlgeschlagen"; return 1; }
+    # Write PID and timeout info to lockfile for debugging
+    {
+        echo "$$"
+        echo "Timeout: $WARTUNG_LOCK_TIMEOUT seconds"
+        echo "Started: $(date '+%Y-%m-%d %H:%M:%S')"
+    } >&"${lock_fd}"
 
-    df_log_info "APT: Installiere Updates (full-upgrade)..."
-    apt-get full-upgrade -y || { df_log_error "apt upgrade fehlgeschlagen"; return 1; }
+    # Ensure lock is released on exit (single quotes = deferred expansion)
+    trap '_release_lock '"${lock_fd}" EXIT INT TERM
 
-    df_log_info "APT: Bereinige Cache & alte Pakete..."
-    apt-get autoremove -yqq && apt-get autoclean -yqq
+    # Start background timeout killer (safety net for hung processes)
+    _start_lock_timeout_monitor "$WARTUNG_LOCK_TIMEOUT" &
+
+    return 0
 }
 
-# --- 2. HAUPTFUNKTION ---------------------------------------------------------
-df_wartung_run() {
-    local mode="${1:-"quick"}"
-    local start_time=$(date +%s)
+# ------------------------------------------------------------------------------
+# _start_lock_timeout_monitor
+#
+# Monitors lock timeout and forcefully terminates if exceeded.
+# Runs in background and kills parent process after timeout.
+#
+# Parameters:
+#   $1 - Timeout in seconds
+# Returns: None (runs in background)
+# ------------------------------------------------------------------------------
+_start_lock_timeout_monitor() {
+    local timeout="${1:-3600}"
+    local parent_pid="$$"
 
-    printf '\033[1m================================================\033[0m\n'
-    df_log_info "System-Wartung: $(hostname) [Mode: ${mode}]"
-    printf '\033[1m================================================\033[0m\n\n'
+    (
+        sleep "$timeout"
 
-    # Validierung
-    [[ "$(uname -s)" != "Linux" ]] && { df_log_error "Nur Linux unterstützt!"; return 1; }
-    [[ $EUID -ne 0 ]] && { df_log_error "Root-Rechte erforderlich! (Nutze sudo)"; return 1; }
+        # Check if parent is still running
+        if ps -p "$parent_pid" >/dev/null 2>&1; then
+            df_log_error "TIMEOUT: Maintenance exceeded ${timeout}s limit, terminating PID $parent_pid"
+            kill -TERM "$parent_pid" 2>/dev/null
 
-    # 1. APT Basis-Wartung (Immer)
-    _df_wartung_apt_common || return 1
-
-    # 2. HOST-SPEZIFISCH (Proxmox / ZFS)
-    if [[ "$HOSTNAME" == *proxmox* || "$HOSTNAME" == *pve* || -d /etc/pve ]]; then
-        if command -v pveam >/dev/null 2>&1; then
-            df_log_info "Proxmox: Update Appliance Manager..."
-            pveam update || df_log_warn "pveam update fehlgeschlagen"
-        fi
-
-        # ZFS Scrub: NUR im Full-Mode
-        if [[ "$mode" == "--full" ]]; then
-            if command -v zpool >/dev/null 2>&1; then
-                local pools
-                pools=$(zpool list -H -o name)
-                for pool in $pools; do
-                    if ! zpool status "$pool" | grep -q "scrub in progress"; then
-                        df_log_info "ZFS: Starte Integritätsprüfung (Scrub) für $pool..."
-                        zpool scrub "$pool"
-                        df_log_success "Scrub für $pool im Hintergrund gestartet."
-                    else
-                        df_log_warn "ZFS: Scrub für $pool läuft bereits."
-                    fi
-                done
+            # Grace period, then force kill
+            sleep 10
+            if ps -p "$parent_pid" >/dev/null 2>&1; then
+                kill -KILL "$parent_pid" 2>/dev/null
             fi
-        else
-            df_log_info "ZFS: Scrub übersprungen (Quick-Mode)."
         fi
+    ) &
+}
+
+# ------------------------------------------------------------------------------
+# _release_lock
+#
+# Releases lock and removes lockfile.
+#
+# Parameters:
+#   $1 - File descriptor number
+# Returns: None
+# ------------------------------------------------------------------------------
+_release_lock() {
+    local lock_fd="${1:-200}"
+
+    # Close file descriptor (releases flock)
+    eval "exec ${lock_fd}>&-"
+
+    # Remove lockfile
+    rm -f "$WARTUNG_LOCKFILE" 2>/dev/null || true
+}
+
+# --- APT HELPERS --------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# _df_wartung_apt_common
+#
+# Performs full APT maintenance cycle:
+#   1. Wait for APT lock release (up to 60s)
+#   2. Sync package lists
+#   3. Install updates (full-upgrade)
+#   4. Clean cache and old packages
+#
+# Parameters: None
+# Returns: 0 success, >0 failure (error count)
+# ------------------------------------------------------------------------------
+_df_wartung_apt_common() {
+    local retries=0
+    local max_retries=6
+    local error_count=0
+
+    # Wait for APT locks
+    while fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || \
+          fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
+        if (( retries >= max_retries )); then
+            df_log_error "APT blocked too long (dpkg lock). Aborting."
+            return 1
+        fi
+        df_log_warn "APT lock active. Waiting 10s... ($((retries+1))/${max_retries})"
+        sleep 10
+        ((retries++))
+    done
+
+    # Sync package lists
+    df_log_info "APT: Syncing package lists..."
+    if ! apt-get update -qq; then
+        df_log_error "apt update failed"
+        ((error_count++))
     fi
 
-    # 3. LOCATE DB (Optimiert)
-    if command -v updatedb >/dev/null 2>&1; then
-        if [[ "$mode" == "--full" ]]; then
-            df_log_info "System: Aktualisiere Locate-Index (Vordergrund)..."
-            updatedb && df_log_success "Index aktualisiert."
+    # Full upgrade
+    df_log_info "APT: Installing updates (full-upgrade)..."
+    if ! apt-get full-upgrade -y -qq; then
+        df_log_error "apt upgrade failed"
+        ((error_count++))
+    fi
+
+    # Cleanup
+    df_log_info "APT: Cleaning cache and old packages..."
+    apt-get autoremove -yqq || ((error_count++))
+    apt-get autoclean -yqq || ((error_count++))
+
+    return "$error_count"
+}
+
+# --- ZFS MAINTENANCE ----------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# _df_wartung_zfs_scrub
+#
+# Starts ZFS scrub for all pools (background process).
+# Skips pools with scrub already in progress.
+#
+# Parameters: None
+# Returns: 0 success, error count on failures
+# ------------------------------------------------------------------------------
+_df_wartung_zfs_scrub() {
+    local error_count=0
+    local -a pools
+    local pool
+
+    if ! command -v zpool >/dev/null 2>&1; then
+        df_log_warn "ZFS tools not installed, skipping scrub"
+        return 0
+    fi
+
+    mapfile -t pools < <(zpool list -H -o name 2>/dev/null)
+
+    if [[ ${#pools[@]} -eq 0 ]]; then
+        df_log_warn "No ZFS pools found, skipping scrub"
+        return 0
+    fi
+
+    for pool in "${pools[@]}"; do
+        if zpool status "$pool" 2>/dev/null | grep -q "scrub in progress"; then
+            df_log_warn "ZFS: Scrub for $pool already running"
         else
-            df_log_info "System: Starte Locate-Index Update im Hintergrund (Resource-Safe)..."
-            # ionice -c 3 sorgt für Idle-I/O-Priorität, nice für niedrige CPU-Last
+            df_log_info "ZFS: Starting integrity check (scrub) for $pool..."
+            if zpool scrub "$pool" 2>/dev/null; then
+                df_log_success "Scrub for $pool started in background"
+            else
+                df_log_error "Failed to start scrub for $pool"
+                ((error_count++))
+            fi
+        fi
+    done
+
+    return "$error_count"
+}
+
+# --- PROXMOX MAINTENANCE ------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# _df_wartung_proxmox
+#
+# Updates Proxmox Appliance Manager database.
+# Only runs on Proxmox VE hosts.
+#
+# Parameters: None
+# Returns: 0 success, 1 failure
+# ------------------------------------------------------------------------------
+_df_wartung_proxmox() {
+    if ! command -v pveam >/dev/null 2>&1; then
+        return 0  # Not a Proxmox host, skip silently
+    fi
+
+    df_log_info "Proxmox: Updating Appliance Manager..."
+    if pveam update 2>/dev/null; then
+        df_log_success "Proxmox appliances updated"
+        return 0
+    else
+        df_log_warn "pveam update failed"
+        return 1
+    fi
+}
+
+# --- LOCATE DATABASE ----------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# _df_wartung_updatedb
+#
+# Updates locate database index.
+# Quick mode: Background with low priority (ionice/nice)
+# Full mode: Foreground execution
+#
+# Parameters:
+#   $1 - Mode ("quick" or "--full")
+# Returns: 0 success, 1 if updatedb not available
+# ------------------------------------------------------------------------------
+_df_wartung_updatedb() {
+    local mode="${1:-quick}"
+
+    if ! command -v updatedb >/dev/null 2>&1; then
+        df_log_warn "updatedb not installed, skipping"
+        return 0
+    fi
+
+    if [[ "$mode" == "--full" ]]; then
+        df_log_info "System: Updating locate index (foreground)..."
+        if updatedb 2>/dev/null; then
+            df_log_success "Locate index updated"
+        else
+            df_log_warn "updatedb failed"
+            return 1
+        fi
+    else
+        df_log_info "System: Starting locate index update (background, low priority)..."
+        # ionice -c 3 = idle I/O, nice -n 19 = lowest CPU priority
+        if command -v ionice >/dev/null 2>&1; then
             nice -n 19 ionice -c 3 updatedb &
-            df_log_success "Index-Update läuft im Hintergrund weiter."
+        else
+            nice -n 19 updatedb &
         fi
-    fi
-
-    # 4. ABSCHLUSS & LOGGING
-    local end_time=$(date +%s)
-    local duration=$((end_time - start_time))
-
-    df_log_success "=== Wartung beendet (Dauer: ${duration}s) ==="
-
-    # Log-Eintrag schreiben
-    local logfile="/var/log/bashwartung.log"
-    if [[ -d "$(dirname "$logfile")" ]]; then
-        printf "%s | %s | Mode: %s | Duration: %ss\n" \
-            "$(date '+%Y-%m-%d %H:%M:%S')" "$(hostname)" "$mode" "$duration" >> "$logfile" 2>/dev/null
+        df_log_success "Locate index update started in background"
     fi
 
     return 0
 }
+
+# --- MAIN FUNCTION ------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# df_wartung_run
+#
+# Main maintenance orchestrator with error aggregation:
+#   1. Acquire exclusive lock (prevent parallel runs)
+#   2. Validate environment (Linux, root)
+#   3. Run APT maintenance
+#   4. Update Proxmox appliances (if applicable)
+#   5. Run ZFS scrub (full mode only)
+#   6. Update locate database
+#   7. Log results with error summary
+#
+# Parameters:
+#   $1 - Mode: "quick" (default) or "--full"
+#
+# Returns: 0 if all steps succeeded, error count otherwise
+#
+# Environment Variables:
+#   DF_WARTUNG_LOCK_TIMEOUT   - Lock timeout in seconds (default: 3600)
+#   DF_WARTUNG_LOCK_RETRIES   - Lock acquisition retries (default: 12)
+#
+# Examples:
+#   df_wartung_run                           # Quick mode (daily)
+#   df_wartung_run --full                    # Full mode (monthly)
+#   DF_WARTUNG_LOCK_TIMEOUT=7200 au-full     # 2h timeout
+# ------------------------------------------------------------------------------
+df_wartung_run() {
+    local mode="${1:-quick}"
+    local start_time
+    local end_time
+    local duration
+    local total_errors=0
+
+    start_time=$(date +%s)
+
+    printf "\033[1m================================================\033[0m\n"
+    df_log_info "System maintenance: $(hostname) [Mode: ${mode}]"
+    df_log_info "Lock timeout: ${WARTUNG_LOCK_TIMEOUT}s | Max runtime: $((WARTUNG_LOCK_TIMEOUT/60))min"
+    printf "\033[1m================================================\033[0m\n\n"
+
+    # 1. Acquire lock
+    _acquire_lock || return 1
+
+    # 2. Environment validation
+    if [[ "$(uname -s)" != "Linux" ]]; then
+        df_log_error "Linux only supported!"
+        return 1
+    fi
+
+    if [[ $EUID -ne 0 ]]; then
+        df_log_error "Root privileges required! (Use sudo)"
+        return 1
+    fi
+
+    # 3. APT maintenance (always)
+    _df_wartung_apt_common
+    local apt_errors=$?
+    ((total_errors += apt_errors))
+
+    # 4. Proxmox maintenance (if applicable)
+    if [[ "$HOSTNAME" == *proxmox* || "$HOSTNAME" == *pve* || -d /etc/pve ]]; then
+        _df_wartung_proxmox || ((total_errors++))
+    fi
+
+    # 5. ZFS scrub (full mode only)
+    if [[ "$mode" == "--full" ]]; then
+        _df_wartung_zfs_scrub
+        local zfs_errors=$?
+        ((total_errors += zfs_errors))
+    else
+        df_log_info "ZFS: Skipping integrity check (quick mode)"
+    fi
+
+    # 6. Locate database update
+    _df_wartung_updatedb "$mode" || ((total_errors++))
+
+    # 7. Finalization & logging
+    end_time=$(date +%s)
+    duration=$((end_time - start_time))
+
+    printf "\n\033[1m================================================\033[0m\n"
+    if [[ $total_errors -eq 0 ]]; then
+        df_log_success "Maintenance completed successfully"
+    else
+        df_log_warn "Maintenance completed with ${total_errors} error(s)"
+    fi
+    df_log_info "Duration: ${duration}s | Timeout: ${WARTUNG_LOCK_TIMEOUT}s"
+    printf "\033[1m================================================\033[0m\n"
+
+    # Write to log file
+    if [[ -d "$(dirname "$WARTUNG_LOGFILE")" ]]; then
+        printf "%s | %s | Mode: %s | Duration: %ss | Timeout: %ss | Errors: %d\n" \
+            "$(date '+%Y-%m-%d %H:%M:%S')" \
+            "$(hostname)" \
+            "$mode" \
+            "$duration" \
+            "$WARTUNG_LOCK_TIMEOUT" \
+            "$total_errors" >> "$WARTUNG_LOGFILE" 2>/dev/null || true
+    fi
+
+    return "$total_errors"
+}
+
+# --- CONVENIENCE ALIASES ------------------------------------------------------
+
+# Quick mode (default) - for daily use
+alias au='sudo bash -c "source ~/.bashwartung && df_wartung_run"'
+
+# Full mode - for monthly maintenance
+alias au-full='sudo bash -c "source ~/.bashwartung && df_wartung_run --full"'

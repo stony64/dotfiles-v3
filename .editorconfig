@@ -1,8 +1,9 @@
 # ------------------------------------------------------------------------------
-# FILE:          .editorconfig
-# VERSION:       1.3.0
-# DESCRIPTION:   EditorConfig für Dotfiles Framework (Proxmox/Bash/LaTeX/YAML).
-# AUTHOR:        Stony64
+# FILE:        .editorconfig
+# VERSION:     3.6.7
+# DESCRIPTION: EditorConfig for Dotfiles Framework (Bash/Shell/YAML focused)
+# AUTHOR:      Stony64
+# CHANGES:     v3.6.7 - Remove Python/Docker/JS (not in framework scope)
 # ------------------------------------------------------------------------------
 
 root = true
@@ -17,28 +18,43 @@ indent_style = space
 indent_size = 4
 max_line_length = 120
 
-# --- MAKEFILES (HEILIGE TABS!) ------------------------------------------------
-[{Makefile,makefile}]
+# --- MAKEFILES (SACRED TABS!) -------------------------------------------------
+[{Makefile,makefile,*.mk,*.mak,GNUmakefile}]
 indent_style = tab
 indent_size = 8
 trim_trailing_whitespace = false
 
 # --- BASH/SHELL FRAMEWORK (4 SPACES) ------------------------------------------
-[*.{sh,bash}]
+[*.{sh,bash,zsh,fish}]
 indent_style = space
 indent_size = 4
 
-# Dotfiles Framework + Configs
-[{.bash*,.dircolors,.nanorc,.shellcheckrc,dotfilesctl.sh,core.sh}]
+# Dotfiles Framework Core
+[{dotfilesctl.sh,core.sh,collect-review.sh}]
+indent_style = space
+indent_size = 4
+
+# Bash Library Modules
+[lib/*.sh]
+indent_style = space
+indent_size = 4
+
+# Sourced Dotfiles (no shebang)
+[{.bashrc,.bashenv,.bashprompt,.bashaliases,.bashfunctions,.bashwartung,.bash_profile,.bash_logout}]
+indent_style = space
+indent_size = 4
+
+# Shell Config Files
+[{.dircolors,.nanorc,.shellcheckrc}]
 indent_style = space
 indent_size = 4
 
 # --- MARKDOWN (FREE FORM) -----------------------------------------------------
-[*.md]
+[*.{md,mdx}]
 trim_trailing_whitespace = false
 max_line_length = off
 
-# --- JSON/YAML (2 SPACES JSON-STANDARD) ---------------------------------------
+# --- JSON/YAML (2 SPACES STANDARD) --------------------------------------------
 [*.{json,jsonc}]
 indent_style = space
 indent_size = 2
@@ -49,35 +65,40 @@ indent_style = space
 indent_size = 2
 max_line_length = 120
 
-# --- WINDOWS FILES -----------------------------------------------------------
-[*.{bat,ps1}]
-end_of_line = crlf
-indent_size = 4
-
-# --- LATEX (2 SPACES) ---------------------------------------------------------
-[*.{tex,latex}]
+# --- TOML (2 SPACES) ----------------------------------------------------------
+[*.toml]
 indent_style = space
 indent_size = 2
 
-# --- PROXMOX/MC CONFIGS -------------------------------------------------------
-[{*.pve,*.conf,mc/ini,pve}]
+# --- WINDOWS FILES (CRLF) -----------------------------------------------------
+[*.{bat,cmd,ps1,psm1}]
+end_of_line = crlf
+indent_style = space
+indent_size = 4
+
+# --- PROXMOX/SYSTEM CONFIGS ---------------------------------------------------
+[{*.pve,*.conf,*.cfg,mc/ini}]
 indent_style = space
 indent_size = 4
 max_line_length = off
+
+# --- ZFS/STORAGE CONFIGS ------------------------------------------------------
+[{*.zfs,*.pool}]
+indent_style = space
+indent_size = 4
 
 # --- LINTER CONFIGS -----------------------------------------------------------
-[{.markdownlint*,.shellcheckrc}]
+[{.markdownlint*,.shellcheckrc,.editorconfig,.gitignore,.gitattributes}]
 indent_style = space
 indent_size = 4
 max_line_length = off
 
-# --- GIT HUB ACTIONS ----------------------------------------------------------
-[*.github/workflows/*.yml]
+# --- GITHUB ACTIONS -----------------------------------------------------------
+[.github/workflows/*.{yml,yaml}]
 indent_style = space
 indent_size = 2
 
-# --- MAKEFILE-GENERATED (NO FORMATTING) ---------------------------------------
-[{*.mak,*.mk}]
+# --- GIT CONFIGS --------------------------------------------------------------
+[{.gitconfig,.gitmodules}]
 indent_style = tab
 indent_size = 8
-trim_trailing_whitespace = false

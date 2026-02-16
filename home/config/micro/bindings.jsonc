@@ -1,0 +1,77 @@
+{
+    // --------------------------------------------------------------------------
+    // FILE:        home/.config/micro/bindings.json
+    // VERSION:     3.6.6
+    // DESCRIPTION: Micro Key Bindings (VSCode/Emacs Hybrid for Proxmox/Bash)
+    // AUTHOR:      Stony64
+    // --------------------------------------------------------------------------
+
+    // --- CLIPBOARD OPERATIONS -------------------------------------------------
+    "Ctrl-a": "SelectAll",
+    "Ctrl-c": "Copy",
+    "Ctrl-v": "Paste",
+    "Ctrl-x": "Cut",
+    "Ctrl-z": "Undo",
+    "CtrlShift-z": "Redo",
+    "Ctrl-y": "Redo",
+
+    // --- FILE OPERATIONS ------------------------------------------------------
+    "Ctrl-s": "Save",
+    "CtrlShift-s": "SaveAs",
+    "Ctrl-n": "TabSwitch",
+    "CtrlShift-n": "NewFile",
+    "Ctrl-o": "OpenFile",
+    "Ctrl-w": "Quit",
+    "Ctrl-q": "Quit",
+
+    // --- SEARCH/REPLACE (Terminal-safe) ---------------------------------------
+    "Ctrl-f": "Find",
+    "Ctrl-r": "Replace",
+    "F3": "FindNext",
+    "Shift-F3": "FindPrevious",
+    "CtrlShift-f": "ReplaceAll",
+
+    // --- MULTI-CURSOR (VSCode-style) ------------------------------------------
+    "Ctrl-d": "SpawnMultiCursor",
+    "CtrlAlt-Up": "SpawnMultiCursorUp",
+    "CtrlAlt-Down": "SpawnMultiCursorDown",
+
+    // --- LINE MANIPULATION ----------------------------------------------------
+    "Ctrl-l": "SelectLine",
+    "CtrlShift-d": "DuplicateLine",
+    "CtrlShift-k": "DeleteLine",
+    "Ctrl-j": "JoinLines",
+    "Alt-Up": "MoveLinesUp",
+    "Alt-Down": "MoveLinesDown",
+    "Ctrl-/": "lua:comment.comment",
+
+    // --- NAVIGATION -----------------------------------------------------------
+    "Ctrl-g": "command:goto",
+    "CtrlShift-p": "CommandMode",
+    "Ctrl-b": "JumpToMatchingBrace",
+
+    // --- FORMATTING/LINTING ---------------------------------------------------
+    "CtrlShift-i": "lua:format.format",
+    "F5": "lua:run.run",
+
+    // --- GIT INTEGRATION ------------------------------------------------------
+    "CtrlShift-g": "lua:git.status",
+
+    // --- PANES/SPLITS ---------------------------------------------------------
+    "Ctrl-e": "VSplitBuf",
+    "CtrlShift-e": "HSplitBuf",
+
+    // --- MACROS ---------------------------------------------------------------
+    "Ctrl-t": "ToggleMacro",
+
+    // --- TERMINAL -------------------------------------------------------------
+    "CtrlShift-x": "lua:shell.shell",
+
+    // --- VIEW/UI --------------------------------------------------------------
+    "F11": "ToggleRuler",
+    "F12": "ToggleLineNumbers",
+
+    // --- AUTOCOMPLETE ---------------------------------------------------------
+    "Tab": "IndentSelection,Autocomplete",
+    "CtrlSpace": "Autocomplete"
+}

@@ -1,0 +1,55 @@
+{
+    // --------------------------------------------------------------------------
+    // FILE:        home/.config/micro/settings.jsonc
+    // VERSION:     3.6.6
+    // DESCRIPTION: Micro Editor Configuration (Proxmox/Dotfiles optimized)
+    // AUTHOR:      Stony64
+    // --------------------------------------------------------------------------
+    // --- APPEARANCE -----------------------------------------------------------
+    "colorscheme": "dracula-tc", // Dracula Truecolor (Proxmox-dark)
+    "truecolor": true, // 24-bit color support
+    "colors": true, // Enable syntax coloring
+    "icons": true, // File type icons
+    // Cursor and visual aids
+    "cursorline": true, // Highlight current line
+    "currentlinecolor": "cursorline", // Use cursorline color
+    "ruler": true, // Show column ruler (120 chars)
+    "scrollbar": true, // Right-side scrollbar
+    "dividers": true, // Show pane dividers
+    // --- EDITING BEHAVIOR -----------------------------------------------------
+    "tabsize": 4, // 4 spaces (bash/shell standard)
+    "indentstyle": "spaces", // Spaces not tabs
+    "tabstospaces": true, // Convert tabs to spaces
+    "softwrap": true, // Soft wrap long lines
+    "keepautoindent": true, // Maintain indentation on new lines
+    "autoindent": true, // Auto-indent new lines
+    // --- SAFETY & AUTOSAVE ----------------------------------------------------
+    "autosave": true, // Auto-save on interval
+    "autosaveinterval": 600, // 10 minutes (600 seconds)
+    "backup": true, // Create backup files
+    "rmtrailingws": true, // Remove trailing whitespace on save
+    "savecursor": true, // Remember cursor position
+    "mkparents": true, // Create parent directories (mkdir -p)
+    // --- UI ELEMENTS ----------------------------------------------------------
+    "infobar": true, // Show info bar at bottom
+    "statusformatr": "%c %l %p", // Right status: Col Line Percent
+    "statusformatl": "${filename} %m %y %{.status.git}", // Left: File [mod] [type] (branch)
+    "filetype": "on", // File type detection
+    "syntax": true, // Syntax highlighting
+    // --- GIT INTEGRATION ------------------------------------------------------
+    "diffgutter": true, // Show git diff in gutter
+    "diffwrapchar": "╎", // Character for wrapped diffs
+    // --- CLIPBOARD & SYSTEM ---------------------------------------------------
+    "clipboard": "internal", // Use internal clipboard
+    "mouse": true, // Enable mouse support
+    "paste": true, // Paste from system clipboard
+    // --- PERFORMANCE ----------------------------------------------------------
+    "smooth": true, // Smooth scrolling
+    "ignorecase": false, // Case-sensitive search
+    "smartpaste": true, // Smart paste indentation
+    // --- FORMATTING -----------------------------------------------------------
+    "formatoninput": false, // Manual format (Ctrl+Shift+I)
+    "wordwrap": false, // Hard wrap disabled (use softwrap)
+    // --- TERMINAL INTEGRATION -------------------------------------------------
+    "sucmd": "sudo" // Super user command for file operations
+}

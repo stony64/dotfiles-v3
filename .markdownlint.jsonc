@@ -1,0 +1,45 @@
+{
+    // --------------------------------------------------------------------------
+    // FILE:        .markdownlint.jsonc
+    // VERSION:     3.6.7
+    // DESCRIPTION: Markdown Linting Rules for VS Code Extension
+    // AUTHOR:      Stony64
+    // CHANGES:     3.6.7 - No changes (VS Code config remains same)
+    // --------------------------------------------------------------------------
+    "MD001": true, // Heading increment
+    "MD003": {
+        "style": "atx_closed"
+    }, // Heading style
+    "MD004": {
+        "style": "dash"
+    }, // List style
+    "MD007": {
+        "indent": 4
+    }, // List indent
+    "MD009": {
+        "br_spaces": 2
+    }, // Trailing spaces
+    "MD013": false, // Line length disabled
+    "MD022": true, // Blank lines around headings
+    "MD024": {
+        "siblings_only": true
+    }, // Duplicate headings
+    "MD025": {
+        "level": 1
+    }, // Top-level heading
+    "MD029": {
+        "style": "one_or_ordered"
+    }, // Ordered list style
+    "MD031": true, // Blank lines around code blocks
+    "MD032": true, // Blank lines around lists
+    "MD033": false, // Inline HTML allowed
+    "MD034": false, // Bare URLs allowed
+    "MD040": false, // Code language not required
+    "MD041": false, // First line not required
+    "MD046": {
+        "style": "fenced"
+    }, // Code block style
+    "MD060": {
+        "style": "any"
+    } // Table pipe style
+}

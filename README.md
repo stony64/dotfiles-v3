@@ -1,75 +1,83 @@
-# 🛠 Dotfiles Framework v3.1.1
+# 🛠 Dotfiles Framework v3.6.5 ##
 
-Ein hochgradig modularer, Multi-User-fähiger Dotfiles-Manager zur zentralen Verwaltung und sicheren Verteilung von Systemkonfigurationen unter `/opt/dotfiles`.
+Ein hochgradig modularer, **Multi-User-fähiger** Dotfiles-Manager für **Proxmox/Debian** – zentrale Konfigurations-Verteilung unter `/opt/dotfiles`.
 
-## 🌟 Hauptmerkmale
+## 🌟 Hauptmerkmale ##
 
-* **Modulare Architektur:** Funktionale Logik ist konsequent in `lib/` ausgelagert.
-* **Sicherheits-Backup:** Automatisierte `.tar.gz`-Snapshots vor jeder Änderung (P1 - Idempotenz).
-* **Multi-User Support:** Zentrale Installation, individuelle Verteilung per User oder `--all`.
-* **Code-Qualität:** Volle Integration von ShellCheck und Markdown-Linting.
+- **Modulare Architektur** – Logik in `lib/` (`df_*`).
+- **Sichere Backups** – `.tar.gz` vor Änderungen (Idempotenz P1).
+- **Multi-User** – `dctl install $USER` oder `--all`.
+- **Proxmox/ZFS** – Panelize-Suchen (mc.ini).
+- **ShellCheck-clean** – 0 Warnings, GitHub Actions.
 
-## 📁 Projektstruktur
-
-```text
-/opt/dotfiles/
-├── core.sh                  # Framework-Kern (Versionen & UI-Definitionen)
-├── dotfilesctl.sh           # Hauptsteuerung (CLI-Entrypoint 'dctl')
-├── lib/                     # Modul-Bibliothek (Backup, Tools, etc.)
-├── home/                    # Repository der Konfigurationsdateien
-│   ├── .bash* # Shell-Konfigurationen (.bashrc, .bashaliases, etc.)
-│   └── config/              # App-Configs (XDG-Struktur für mc, micro, etc.)
-├── docs/
-│   └── STYLEGUIDE.md        # Zentraler Styleguide für das Framework
-├── .shellcheckrc            # Statische Code-Analyse Konfiguration (Bash)
-├── .markdown*.jsonc         # Markdown-Linting Konfigurationen (CLI-2)
-└── .editorconfig            # Editor-Übergreifende Formatierungsregeln
+## 📁 Projektstruktur ##
 
 ```
+core.sh                    # Kern (DF_PROJECT_VERSION)
+dotfilesctl.sh             # CLI: dctl install/status
+├── lib/                   # df_* Module (backup/deploy/log)
+├── home/                  # Dotfiles (.bash*, mc/ini)
+│   ├── .bash*             # Shell (bashrc, aliases, functions)
+│   └── config/
+│       └── mc/            # Midnight Commander
+├── docs/                  # Dokumentation
+│   └── STYLEGUIDE.md      # Bash/ShellCheck Guide
+├── .github/workflows/     # Lint/Release Actions
+├── .shellcheckrc          # ShellCheck Config
+├── markdownlint-cli2.jsonc # MD-Lint (SARIF)
+├── .editorconfig          # 4-Spaces (shfmt)
+└── .gitattributes         # LF + exec
+```
 
-## 🚀 Installation & Nutzung
+## 🚀 Installation ##
 
-### 1. Framework bereitstellen
-
-Zuerst wird das Repository an den Standard-Ort geklont:
+### 1. Framework installieren ###
 
 ```bash
-sudo git clone https://github.com/Stony64/dotfiles-v3.git /opt/dotfiles
-
+sudo git clone --depth=1 https://github.com/Stony64/dotfiles-v3 /opt/dotfiles
+sudo /opt/dotfiles/dotfilesctl.sh install $USER
+source ~/.bashrc
 ```
 
-### 2. Erstinstallation & Registrierung
+**`/usr/local/bin/dctl`** wird automatisch verlinkt!
 
-Beim ersten Lauf wird das Framework systemweit registriert. Dies erzeugt automatisch einen Symlink unter `/usr/local/bin/dctl`, damit das Tool ab sofort als Kommando `dctl` verfügbar ist.
-
-**Hinweis:** Der erste Aufruf sollte mit `sudo` erfolgen, um das System-Kommando zu registrieren und die Dotfiles für den aktuellen User zu installieren.
+### 2. Tägliche Nutzung ###
 
 ```bash
-sudo /opt/dotfiles/dotfilesctl.sh install "$USER"
-
+dctl status    # Link-Check
+dctl backup    # tar.gz Backup
+dctl install   # Update + Backup
+dctl reinstall # Hard-Reset
 ```
 
-### 3. Tägliche Nutzung
+**Safety:** Backups vor **jeder** Änderung → **Zero Downtime**.
 
-Nach der Erstinstallation kannst du das Framework einfach über `dctl` steuern:
+## 🔍 Proxmox Integration (mc.ini) ##
 
-```bash
-dctl status "$USER"
-dctl install "$USER"
+**F9 → Panelize:**
 
 ```
+Proxmox VMs     # qm list
+Proxmox CTs     # pct list
+ZFS Datasets    # zfs list -Ho
+Docker Images   # docker images
+Shell Scripts   # find *.sh -executable
+```
 
-> **Sicherheit:** Vor jeder Installation wird automatisch ein Backup erstellt. Sollte die Backup-Erstellung fehlschlagen, bricht das Framework den Vorgang sofort ab.
+## 🛠 Standards ##
 
-## 🛠 Standards
+| Tool             | Config                    | Status     |
+|------------------|---------------------------|------------|
+| **ShellCheck**   | `.shellcheckrc`           | 0 Warnings |
+| **markdownlint** | `markdownlint-cli2.jsonc` | SARIF      |
+| **EditorConfig** | `.editorconfig`           | 4-Spaces   |
 
-* **Indentation:** 4 Spaces (Bash, JSON, YAML) via `.editorconfig`.
-* **Shell:** Bash 4.0+ Fokus.
-* **Linter:** ShellCheck v0.9.0+ konform.
-* **Lizenz:** MIT
+**Strict Mode:** `set -euo pipefail`
 
----
+## 📦 Quick Assets ##
 
-*Dokumentation aktualisiert für Framework Version 3.1.1.*
+- [dctl](dotfilesctl.sh) – CLI Binary
+- [core.sh](core.sh) – Version/Logging
+- [ZIP](https://github.com/Stony64/dotfiles-v3/archive/refs/tags/v3.6.5.zip)
 
 ---

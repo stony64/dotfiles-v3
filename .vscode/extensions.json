@@ -1,0 +1,121 @@
+{
+  // --------------------------------------------------------------------------
+  // FILE:        .vscode/extensions.json
+  // VERSION:     3.8.0-vscodium
+  // DESCRIPTION: VSCodium Extensions (Open-Source, no MS telemetry)
+  // AUTHOR:      Stony64
+  // LAST UPDATE: 2026-02-15
+  // --------------------------------------------------------------------------
+  // IMPORTANT: VSCodium uses open-vsx.org marketplace, not marketplace.visualstudio.com
+  //
+  // Install extensions via:
+  //   codium --install-extension <extension-id>
+  //
+  // or from Open VSX:
+  //   https://open-vsx.org/
+  // --------------------------------------------------------------------------
+  "recommendations": [
+    // --- CORE (Dotfiles Framework) ----------------------------------------
+    "timonwong.shellcheck", // ✅ ShellCheck (Open VSX)
+    "foxundermoon.shell-format", // ✅ shfmt (Open VSX)
+    "rogalmic.bash-debug", // ✅ Bash debugging (Open VSX)
+    "davidanson.vscode-markdownlint", // ✅ Markdown lint (Open VSX)
+    "yzhang.markdown-all-in-one", // ✅ Markdown all-in-one (Open VSX)
+    "eamodio.gitlens", // ✅ GitLens (Open VSX)
+    "mhutchie.git-graph", // ✅ Git graph (Open VSX)
+    "editorconfig.editorconfig", // ✅ EditorConfig (Open VSX)
+    // --- THEME/UI ---------------------------------------------------------
+    "catppuccin.catppuccin-vsc", // ✅ Catppuccin theme (Open VSX)
+    "catppuccin.catppuccin-vsc-icons", // ✅ Catppuccin icons (Open VSX)
+    "aaron-bond.better-comments", // ✅ Better comments (Open VSX)
+    "tockn.darcula-port", // ✅ Darcula theme (Open VSX)
+    "seyyedkhandon.firacode", // ✅ FiraCode font ligatures (Open VSX)
+    // --- SPELL CHECKING ---------------------------------------------------
+    "streetsidesoftware.code-spell-checker", // ✅ English (Open VSX)
+    "streetsidesoftware.code-spell-checker-german", // ✅ German (Open VSX)
+    // --- C#/.NET (Open Source alternatives + Dependencies) ----------------
+    "muhammad-sammy.csharp", // ✅ C# Language Server (Open Source, replaces ms-dotnettools.csharp)
+    "ms-dotnettools.vscode-dotnet-runtime", // ✅ .NET Runtime (REQUIRED Dependency for muhammad-sammy.csharp)
+    "josefpihrt-vscode.roslynator", // ✅ Roslynator analyzer (Open VSX)
+    "kreativ-software.csharpextensions", // ✅ C# Extensions (Open VSX)
+    "k--kato.docomment", // ✅ XML Documentation comments (Open VSX)
+    // --- TESTING ----------------------------------------------------------
+    "hbenl.vscode-test-explorer", // ✅ Test Explorer UI (Open VSX)
+    "ms-vscode.test-adapter-converter", // ✅ Test Adapter Converter (works in VSCodium)
+    // --- VBA --------------------------------------------------------------
+    "serkonda7.vscode-vba", // ✅ VBA (Open VSX)
+    // --- WEB/CONFIG -------------------------------------------------------
+    "esbenp.prettier-vscode", // ✅ Prettier (Open VSX)
+    "redhat.vscode-yaml", // ✅ YAML (Open VSX)
+    "redhat.vscode-xml", // ✅ XML (Open VSX)
+    // --- LATEX ------------------------------------------------------------
+    "james-yu.latex-workshop", // ✅ LaTeX (Open VSX)
+    "tecosaur.latex-utilities", // ✅ LaTeX utils (Open VSX)
+    // --- POWERSHELL (Windows) ---------------------------------------------
+    "ms-vscode.powershell", // ⚠️  Limited in VSCodium, but basic features work
+    // --- REMOTE SSH (Open Source alternative) -----------------------------
+    "jeanp413.open-remote-ssh", // ✅ Open Remote SSH (replaces MS Remote)
+    // --- PRODUCTIVITY -----------------------------------------------------
+    "mechatroner.rainbow-csv", // ✅ CSV (Open VSX)
+    "stkb.rewrap", // ✅ Rewrap (Open VSX)
+    "christian-kohler.path-intellisense", // ✅ Path autocomplete (Open VSX)
+    "irongeek.vscode-env", // ✅ .env support (Open VSX)
+    "alefragnani.project-manager", // ✅ Project manager (Open VSX)
+    // --- TERRAFORM (if needed) --------------------------------------------
+    "hashicorp.terraform", // ✅ Terraform (Open VSX)
+    // --- MAKEFILE ---------------------------------------------------------
+    "ms-vscode.makefile-tools", // ✅ Makefile tools (works in VSCodium)
+    // --- MUSIC TAGS (if needed) -------------------------------------------
+    "phw.tagger-script", // ✅ Picard Tagger Script (Open VSX)
+    // --- AI ASSISTANT (Open Source) ---------------------------------------
+    "codeium.codeium" // ✅ Codeium (free, works with VSCodium, RECOMMENDED)
+  ],
+  "unwantedRecommendations": [
+    // --- MICROSOFT PROPRIETARY (don't work in VSCodium) -------------------
+    "ms-dotnettools.csdevkit", // ❌ MS proprietary (use muhammad-sammy.csharp)
+    "ms-dotnettools.csharp", // ❌ MS proprietary (use muhammad-sammy.csharp)
+    "ms-dotnettools.dotnet-maui", // ❌ MS proprietary
+    // NOTE: ms-dotnettools.vscode-dotnet-runtime is REQUIRED as dependency!
+    // --- MICROSOFT REMOTE (use Open-Remote-SSH instead) -------------------
+    "ms-vscode-remote.remote-ssh", // ❌ Use jeanp413.open-remote-ssh
+    "ms-vscode-remote.remote-ssh-edit", // ❌ MS proprietary
+    "ms-vscode-remote.remote-wsl", // ❌ MS proprietary (Windows WSL)
+    "ms-vscode.remote-explorer", // ❌ MS proprietary
+    // --- MICROSOFT SQL (use external tools) -------------------------------
+    "ms-mssql.mssql", // ❌ Use SSMS/Azure Data Studio
+    "ms-mssql.data-workspace-vscode", // ❌ MS proprietary
+    "ms-mssql.sql-bindings-vscode", // ❌ MS proprietary
+    "ms-mssql.sql-database-projects-vscode", // ❌ MS proprietary
+    // --- SQL TOOLS (not compatible with VSCodium) -------------------------
+    "mtxr.sqltools", // ❌ Removed (use ssql-tools or external clients)
+    "mtxr.sqltools-driver-mssql", // ❌ Cannot read properties of undefined
+    "mtxr.sqltools-driver-pg", // ❌ Use external tools (DBeaver, pgAdmin)
+    "mtxr.sqltools-driver-mysql", // ❌ Use external tools (DBeaver, MySQL Workbench)
+    // --- MICROSOFT PYTHON (not used) --------------------------------------
+    "ms-python.python", // ❌ Not used (removed)
+    "ms-python.debugpy", // ❌ Not used (removed)
+    "ms-python.vscode-python-envs", // ❌ Not used (removed)
+    "ms-python.vscode-pylance", // ❌ MS proprietary
+    // --- PYTHON TOOLS (not used) ------------------------------------------
+    "charliermarsh.ruff", // ❌ Not used (Python not needed)
+    // --- GITHUB (MS-owned, proprietary) -----------------------------------
+    "github.copilot", // ❌ MS proprietary (use Codeium)
+    "github.copilot-chat", // ❌ MS proprietary (use Codeium)
+    "github.codespaces", // ❌ Cloud-only feature
+    "github.vscode-github-actions", // ❌ Limited support in VSCodium
+    "github.vscode-pull-request-github", // ❌ MS proprietary (limited support in VSCodium)
+    // --- JETBRAINS (proprietary) ------------------------------------------
+    "jetbrains.resharper-code", // ❌ Proprietary (use Roslynator instead)
+    // --- REDUNDANT C# -----------------------------------------------------
+    "blipk.csharp", // ❌ Redundant (use muhammad-sammy.csharp instead)
+    "formulahendry.dotnet-test-explorer", // ❌ Redundant (use hbenl.vscode-test-explorer)
+    // --- REDUNDANT/UNNECESSARY --------------------------------------------
+    "mads-hartmann.bash-ide-vscode", // ❌ Redundant (use shellcheck + shell-format + bash-debug)
+    "grapecity.gc-excelviewer", // ❌ Not needed (use rainbow-csv)
+    "syncfusioninc.maui-vscode-extensions", // ❌ Not compatible with VSCodium
+    "threatcon.vba-formatter", // ❌ Redundant (serkonda7.vscode-vba has formatting)
+    // --- AI ALTERNATIVES (not needed if using Codeium) --------------------
+    "continue.continue", // ❌ Overkill (use Codeium instead)
+    "tabbyml.vscode-tabby" // ❌ Overkill (use Codeium instead)
+  ]
+}

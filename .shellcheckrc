@@ -1,28 +1,67 @@
-# .shellcheckrc
-# ShellCheck Konfiguration für das Dotfiles Framework
-# Version: 1.4.0 (SC1134 endgültig behoben – 14.02.2026)
+# ------------------------------------------------------------------------------
+# FILE:        .shellcheckrc
+# VERSION:     3.6.7
+# DESCRIPTION: ShellCheck Configuration for Dotfiles Framework
+# AUTHOR:      Stony64
+# CHANGES:     v3.6.7 - Enable severity=warning (focus on actionable issues)
+# ------------------------------------------------------------------------------
 
-# 1. Shell & Kompatibilität
+# --- SHELL & COMPATIBILITY ----------------------------------------------------
 shell=bash
 
-# 2. Pfade
+# --- SOURCE PATH RESOLUTION ---------------------------------------------------
+# SCRIPTDIR = directory of the script being checked
 source-path=SCRIPTDIR
 
-# 3. Globale Unterdrückungen
-# SC1090/1091 → dynamisches Sourcing
-# SC2148   → Library-Dateien ohne Shebang
-# SC2034   → unbenutzte Variablen
-# SC2086   → bewusstes Word Splitting
-# SC2155   → declare + assign getrennt
-disable=SC1090,SC1091,SC2148,SC2034,SC2086,SC2155
+# --- GLOBALLY DISABLED CHECKS -------------------------------------------------
+# SC1090/1091 - Dynamic sourcing (source "$variable")
+#   Reason: Framework uses dynamic module loading
+#
+# SC2148 - Missing shebang
+#   Reason: Sourced library files don't need shebang
+#
+# SC2034 - Unused variables
+#   Reason: Framework exports variables for user scripts
+#
+# SC2086 - Unquoted word splitting
+#   Reason: Intentional in some aliases (e.g., ls flags)
+#
+# SC2312 - Invoke separately for better error handling
+#   Reason: Framework uses $(cmd || fallback) patterns
 
+disable=SC1090,SC1091,SC2148,SC2034,SC2086,SC2312
 
-# 4. Strict-Mode-Erweiterungen (ohne check-unassigned-uppercase)
+# --- ENABLED STRICT CHECKS ----------------------------------------------------
+# quote-safe-variables           - Warn about unquoted variables
+# check-set-e-suppressed         - Warn when set -e is disabled in conditions
+# check-indirect-interactive-source - Warn about interactive-only sourcing
+
 enable=quote-safe-variables,check-set-e-suppressed,check-indirect-interactive-source
 
-# 5. Ausgabe-Formatierung
+# --- OUTPUT FORMATTING --------------------------------------------------------
 color=always
 format=gcc
 
-# 6. Optional: externe Dateien dürfen gesourct werden (nützlich bei Framework-Modulen)
+# --- EXTERNAL SOURCES ---------------------------------------------------------
+# Allow sourcing files from outside the repository
+# Useful for framework modules in /opt/dotfiles
 external-sources=true
+
+# --- SEVERITY THRESHOLD -------------------------------------------------------
+# Only report warnings and errors (suppress info/style suggestions)
+# Rationale:
+#   - Focus on actionable issues (bugs, compatibility, security)
+#   - Reduce noise from subjective style preferences
+#   - Improve signal-to-noise ratio in CI/CD
+#   - Framework code is production-ready, not experimental
+#
+# Severity levels:
+#   error   - Critical issues (syntax errors, undefined behavior)
+#   warning - Important issues (potential bugs, portability)
+#   info    - Informational (optimization suggestions)
+#   style   - Stylistic suggestions (formatting, conventions)
+#
+# To see all suggestions during development:
+#   shellcheck --severity=style <file>
+#
+severity=warning

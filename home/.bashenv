@@ -1,23 +1,42 @@
 #!/usr/bin/env bash
 # ------------------------------------------------------------------------------
-# FILE:          .bashenv
-# VERSION:       1.6.0
-# DESCRIPTION:   Zentrale Umgebungsvariablen (Proxmox + Framework)
-# AUTHOR:        Stony64
+# FILE:        home/.bashenv
+# VERSION:     3.6.6
+# DESCRIPTION: Central Environment Variables & Shell Options
+# AUTHOR:      Stony64
+# CHANGES:     v3.6.6 - Added idempotency guard, robust PROMPT_COMMAND handling
 # ------------------------------------------------------------------------------
 
-# ShellCheck safe (.shellcheckrc)
-# shellcheck source=/dev/null disable=SC2155,SC2034
+# ShellCheck configuration
+# shellcheck source=/dev/null disable=SC2034,SC2086
 
-# --- 1. CORE SETTINGS ---------------------------------------------------------
-# HINWEIS: 'set -e' wird hier bewusst NICHT global gesetzt, da dies bei einem
-# fehlerhaften Environment-Check die gesamte Login-Shell schließen würde.
-set -o nounset  # Fehler bei Zugriff auf nicht gesetzte Variablen
-set -o pipefail # Pipes geben den Fehlercode des letzten fehlgeschlagenen Befehls weiter
+# --- IDEMPOTENCY GUARD --------------------------------------------------------
+# Prevents multiple loading and PROMPT_COMMAND duplication
+[[ -n "${DF_BASHENV_LOADED:-}" ]] && return 0
+readonly DF_BASHENV_LOADED=1
 
-# --- 2. EDITOR & VIEWER (Auto-Discovery) --------------------------------------
-# Priorität: code/codium > nvim > micro > nano > vi
-for cmd in code codium nvim micro nano vi; do
+# --- STRICT MODE (PARTIAL) ----------------------------------------------------
+# NOTE: 'set -e' is intentionally NOT set globally here, as it would close the
+# entire login shell on a failed environment check.
+# 'set -u' is also NOT set to avoid breaking scripts that use unset variables.
+
+set -o pipefail  # Pipes propagate exit code of last failed command
+
+# --- FRAMEWORK INTEGRATION ----------------------------------------------------
+# Source core.sh if available for version and utilities
+if [[ -z "${DF_CORE_LOADED:-}" && -f "${DF_REPO_ROOT:-/opt/dotfiles}/core.sh" ]]; then
+    # shellcheck source=/dev/null
+    source "${DF_REPO_ROOT:-/opt/dotfiles}/core.sh" 2>/dev/null || true
+fi
+
+# Fallback if core.sh not loaded
+if [[ -z "${DF_REPO_ROOT:-}" ]]; then
+    export DF_REPO_ROOT="/opt/dotfiles"
+fi
+
+# --- EDITOR & VIEWER (AUTO-DISCOVERY) -----------------------------------------
+# Priority chain: nano > micro > code/codium > nvim > vi
+for cmd in nano micro code codium nvim vi; do
     if command -v "$cmd" >/dev/null 2>&1; then
         export EDITOR="$cmd"
         export VISUAL="$cmd"
@@ -26,47 +45,67 @@ for cmd in code codium nvim micro nano vi; do
     fi
 done
 
-# --- 3. HISTORY SUPERCHARGED --------------------------------------------------
+# --- HISTORY CONFIGURATION ----------------------------------------------------
 export HISTTIMEFORMAT="%F %T "
 export HISTCONTROL="ignoreboth:erasedups"
-# Ignoriert triviale Befehle und sensible Framework-Kommandos
-export HISTIGNORE="&:ls:ll:la:l:..:pwd:exit:clear:mc:au:dctl:proxmox:pct:qm:zfs:zpool"
+export HISTIGNORE="&:ls:ll:la:l:..:pwd:exit:clear:mc:au:dctl:proxmox:pct:qm:zfs:zpool:git:st:co"
 export HISTSIZE=10000
 export HISTFILESIZE=100000
 
-# Shell-Optionen für besseres Handling
-shopt -s histappend  # History an Datei anhängen statt überschreiben
-shopt -s cmdhist     # Mehrzeilige Befehle als ein Eintrag speichern
-shopt -s cdspell     # Korrigiert kleine Tippfehler bei 'cd'
-shopt -s checkwinsize # Aktualisiert Fenstergröße nach jedem Befehl
-shopt -s globstar    # Erlaubt rekursives Globbing mit **
+# Shell options for better history handling
+shopt -s histappend 2>/dev/null     # Append history instead of overwriting
+shopt -s cmdhist 2>/dev/null        # Multi-line commands as single entry
+shopt -s cdspell 2>/dev/null        # Corrects minor cd typos
+shopt -s checkwinsize 2>/dev/null   # Updates window size after each command
+shopt -s globstar 2>/dev/null       # Enables recursive globbing with **
 
-# Sofortiges Speichern der History nach jedem Befehl (Multi-Terminal Sync)
-PROMPT_COMMAND="history -a; ${PROMPT_COMMAND:-}"
-export PROMPT_COMMAND
+# Immediate history save after each command (multi-terminal sync)
+# Only append if not already present (prevents duplication on reload)
+if [[ "${PROMPT_COMMAND:-}" != *"history -a"* ]]; then
+    if [[ -n "${PROMPT_COMMAND:-}" ]]; then
+        PROMPT_COMMAND="history -a; ${PROMPT_COMMAND}"
+    else
+        PROMPT_COMMAND="history -a"
+    fi
+    export PROMPT_COMMAND
+fi
 
-# --- 4. TERMINAL COLORS & PAGER -----------------------------------------------
+# --- TERMINAL COLORS & PAGER --------------------------------------------------
 if [[ "$TERM" != "dumb" ]] && command -v tput >/dev/null 2>&1; then
     export MANPAGER="less -s -M +Gg"
 
-    # Farbige Man-Pages (LESS_TERMCAP)
-    export LESS_TERMCAP_mb="$(tput bold; tput setaf 1)" # Blink
-    export LESS_TERMCAP_md="$(tput bold; tput setaf 3)" # Bold / Titel
-    export LESS_TERMCAP_me="$(tput sgr0)"               # Reset
-    export LESS_TERMCAP_se="$(tput rmso; tput sgr0)"    # Standout end
-    export LESS_TERMCAP_so="$(tput bold; tput setab 4; tput setaf 3)" # Info-Balken
-    export LESS_TERMCAP_ue="$(tput rmul; tput sgr0)"    # Underline end
-    export LESS_TERMCAP_us="$(tput smul; tput setaf 2)" # Underline start
+    # Colored Man-Pages via LESS_TERMCAP
+    # Separate declaration and assignment to avoid SC2155
+    LESS_TERMCAP_mb="$(tput bold; tput setaf 1)"  # Blinking (bold red)
+    export LESS_TERMCAP_mb
 
-    # Modern less Flags: R (Farben), i (Case-Insensitive Suche), M (Langer Prompt)
+    LESS_TERMCAP_md="$(tput bold; tput setaf 3)"  # Bold/Header (yellow)
+    export LESS_TERMCAP_md
+
+    LESS_TERMCAP_me="$(tput sgr0)"                # Reset
+    export LESS_TERMCAP_me
+
+    LESS_TERMCAP_se="$(tput rmso; tput sgr0)"     # Standout end
+    export LESS_TERMCAP_se
+
+    LESS_TERMCAP_so="$(tput bold; tput setab 4; tput setaf 3)"  # Info bar
+    export LESS_TERMCAP_so
+
+    LESS_TERMCAP_ue="$(tput rmul; tput sgr0)"     # Underline end
+    export LESS_TERMCAP_ue
+
+    LESS_TERMCAP_us="$(tput smul; tput setaf 2)"  # Underline start (green)
+    export LESS_TERMCAP_us
+
+    # Modern less flags: R (colors), i (case-insensitive), M (long prompt)
     export LESS='-R -i -w -z-4 -M --shift=5'
 fi
 
-# --- 5. FZF CONFIGURATION -----------------------------------------------------
+# --- FZF CONFIGURATION --------------------------------------------------------
 if command -v fzf >/dev/null 2>&1; then
     export FZF_DEFAULT_OPTS='--height 50% --layout=reverse --border --margin=1 --info=inline'
 
-    # Falls 'bat' installiert ist, nutzen wir es als Preview-Engine
+    # Use bat as preview engine if installed
     if command -v bat >/dev/null 2>&1; then
         export FZF_CTRL_T_OPTS="--preview 'bat --style=numbers --color=always --line-range :500 {}'"
     elif command -v batcat >/dev/null 2>&1; then
@@ -74,11 +113,11 @@ if command -v fzf >/dev/null 2>&1; then
     fi
 fi
 
-# --- 6. LOCALES (System-aware) ------------------------------------------------
-# Wir setzen LC_CTYPE auf C.UTF-8 für korrekte Sortierung in Skripten,
-# erlauben aber LANG für die UI-Sprache.
+# --- LOCALES (SYSTEM-AWARE) ---------------------------------------------------
+# Set LC_CTYPE to C.UTF-8 for correct sorting in scripts
 export LC_CTYPE=C.UTF-8
 
+# Detect German locale, fallback to English
 if [[ "$(uname -s)" == "Linux" ]] && locale -a 2>/dev/null | grep -qE "(de_DE|de_DE.UTF-8)"; then
     export LANG=de_DE.UTF-8
     export LC_MESSAGES=de_DE.UTF-8
@@ -87,18 +126,14 @@ else
     export LC_MESSAGES=en_US.UTF-8
 fi
 
-# --- 7. PROXMOX / ZFS / GPG ---------------------------------------------------
+# --- PROXMOX / ZFS / GPG ------------------------------------------------------
 if [[ "$(uname -s)" == "Linux" ]]; then
+    # ZFS feature flags
     export ZPOOL_FEATURES="async_destroy,bookmarks"
 
-    # GPG TTY Zuweisung (verhindert Fehler bei Passphrase-Abfrage)
-    export GPG_TTY="$(tty)"
+    # GPG TTY assignment (prevents passphrase prompt errors)
+    # Separate declaration and assignment to avoid SC2155
+    GPG_TTY="$(tty 2>/dev/null)"
+    export GPG_TTY
     export PINENTRY_USER_DATA="USE_CURSES=1"
-fi
-
-# --- 8. FRAMEWORK METADATA ----------------------------------------------------
-export DF_PROJECT_VERSION="3.5.0"
-# Pfad-Check für Repo-Root
-if [[ -z "${DF_REPO_ROOT:-}" ]]; then
-    export DF_REPO_ROOT="/opt/dotfiles"
 fi

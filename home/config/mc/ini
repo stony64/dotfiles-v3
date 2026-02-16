@@ -1,21 +1,28 @@
 # ------------------------------------------------------------------------------
-# FILE:          home/config/mc/ini
-# VERSION:       1.5.0
-# DESCRIPTION:   Midnight Commander INI
-# AUTHOR:        Stony64
+# FILE:        home/.config/mc/ini
+# VERSION:     3.6.7
+# DESCRIPTION: Midnight Commander Configuration (Proxmox/Dotfiles optimized)
+# AUTHOR:      Stony64
+# CHANGES:     v3.6.7 - Refined ShellCheck disables, add command timeouts
 # ------------------------------------------------------------------------------
 
+# ShellCheck: MC INI file uses [Section] syntax not valid in shell scripts
+# Only disable INI-specific syntax warnings, not general shell issues
+# shellcheck disable=SC1073,SC1072  # INI: [Sections] and key=value syntax
+# shellcheck source=/dev/null       # Not a sourceable shell script
+
 [Midnight-Commander]
-# --- CORE ---------------------------------------------------------------------
+# --- CORE BEHAVIOR ------------------------------------------------------------
 shell_patterns=true
 auto_save_setup=true
 use_internal_view=true
-use_internal_edit=false
+use_internal_edit=false       # External: nano/micro
 clear_before_exec=true
 preallocate_space=false
 verbose=true
+drop_menus=false              # F9 for menu access
 
-# --- SAFETY -------------------------------------------------------------------
+# --- SAFETY (Proxmox Production) ----------------------------------------------
 confirm_delete=true
 confirm_overwrite=true
 confirm_execute=false
@@ -25,7 +32,7 @@ confirm_directory_hotlist_delete=false
 safe_delete=false
 safe_overwrite=false
 
-# --- UI/UX --------------------------------------------------------------------
+# --- UI/UX (Terminal optimized) -----------------------------------------------
 auto_menu=false
 pause_after_run=1
 old_esc_mode=true
@@ -36,13 +43,13 @@ use_file_to_guess_type=true
 shadows=true
 auto_fill_mkdir_name=true
 
-# --- MOUSE --------------------------------------------------------------------
+# --- MOUSE SUPPORT ------------------------------------------------------------
 mouse_move_pages_viewer=true
 mouse_close_dialog=false
 mouse_repeat_rate=100
 double_click_speed=250
 
-# --- EDITOR -------------------------------------------------------------------
+# --- EDITOR (EditorConfig-sync: 4 spaces) -------------------------------------
 editor_tab_spacing=4
 editor_fill_tabs_with_spaces=true
 editor_return_does_auto_indent=true
@@ -53,10 +60,10 @@ editor_visible_tabs=true
 editor_visible_spaces=true
 editor_group_undo=true
 editor_state_full_filename=true
-skin=gotar
+skin=gotar                   # Modern dark theme
 
 [Layout]
-# --- PANELS -------------------------------------------------------------------
+# --- PANEL LAYOUT -------------------------------------------------------------
 menubar_visible=true
 keybar_visible=true
 command_prompt=true
@@ -69,7 +76,7 @@ left_panel_size=0.35
 output_lines=6
 
 [Panels]
-# --- FILE LISTS ---------------------------------------------------------------
+# --- FILE DISPLAY OPTIONS -----------------------------------------------------
 show_dot_files=true
 show_backups=true
 show_mini_info=true
@@ -77,53 +84,85 @@ mark_moves_down=true
 reverse_files_only=true
 navigate_with_arrows=true
 panel_scroll_pages=true
-quick_search_mode=2
+quick_search_mode=2          # Incremental search
 mix_all_files=false
-kilobyte_si=true
+kilobyte_si=true             # 1000-based units (1KB = 1000 bytes)
 filetype_mode=true
 
 [Misc]
-# --- TIME/LOCALE --------------------------------------------------------------
+# --- LOCALE/TIME (German format) ----------------------------------------------
 timeformat_recent=%d.%b %H:%M
 timeformat_old=%d.%b %Y
 display_codepage=UTF-8
 source_codepage=UTF-8
 
 [Panelize]
-# --- CORE SEARCHES ------------------------------------------------------------
-Geänderte Git-Dateien=git ls-files --modified --exclude-standard
-Nach *.orig nach dem Patchen suchen=find . -name \*.orig -print
-Nach Ablehnungen suchen=find . -name \*.rej -print
-SUID/SGID=find . \( -perm -4000 -o -perm -2000 \) -ls
-Große Dateien (>100MB)=find . -type f -size +100M -exec ls -lh {} \;
-Dateien letzte 24h=find . -type f -mtime -1 -printf '%TY-%Tm-%Td %TT %p\n' | sort -r
-Leere Verzeichnisse=find . -type d -empty -print
+# ==============================================================================
+# PANELIZE COMMANDS (with timeout protection)
+# ==============================================================================
+# Timeout: 5s for most commands (prevents MC freeze on slow filesystems/network)
+# Depth:   Limited find depth to prevent excessive recursion
+# Errors:  Redirected to /dev/null to keep output clean
+# ==============================================================================
 
-# --- PROXMOX (CT/VM/ZFS) ------------------------------------------------------
-Proxmox VMs=qm list | awk 'NR>1{print $1" "$(NF-1)}'
-Proxmox CTs=pct list | awk 'NR>1{print $1" "$(NF-1)}'
-ZFS Datasets=zfs list -Ho name,mountpoint,used,avail -r | grep -v '^NAME'
-Proxmox Configs=find /etc/pve -name "*.conf" -type f 2>/dev/null
-pvetm Status=pvetm status --plain
+# --- GIT/VERSION CONTROL (5s timeout) -----------------------------------------
+Git Modified=timeout 5s git ls-files --modified --exclude-standard 2>/dev/null || echo "⚠ Timeout or not a git repo"
+Git Untracked=timeout 5s git ls-files --others --exclude-standard 2>/dev/null || echo "⚠ Timeout or not a git repo"
+Git Staged=timeout 5s git diff --cached --name-only 2>/dev/null || echo "⚠ Timeout or git error"
+Find .orig (patches)=timeout 5s find . -maxdepth 5 -name "\\*.orig" -type f -print 2>/dev/null || echo "⚠ Search timeout"
+Find .rej (conflicts)=timeout 5s find . -maxdepth 5 -name "\\*.rej" -type f -print 2>/dev/null || echo "⚠ Search timeout"
 
-# --- DOCKER/PODMAN -----------------------------------------------------------
-Docker Images=docker images | awk 'NR>2{print $1":"$2}'
-Docker Containers=docker ps -a --format "table {{.ID}}\t{{.Names}}\t{{.Status}}"
-Podman Containers=podman ps -a --format "table {{.ID}}\t{{.Names}}\t{{.Status}}"
+# --- SECURITY/PERMISSIONS (10s timeout for recursive search) ------------------
+SUID/SGID Files=timeout 10s find . -maxdepth 8 \\( -perm -4000 -o -perm -2000 \\) -ls 2>/dev/null || echo "⚠ Search timeout (deep scan)"
+World Writable=timeout 10s find . -maxdepth 8 -type f -perm -002 -ls 2>/dev/null || echo "⚠ Search timeout"
+Executable Scripts=timeout 10s find . -maxdepth 6 -type f -executable \\( -name "*.sh" -o -name "*.bash" -o -name "*.py" \\) 2>/dev/null || echo "⚠ Search timeout"
 
-# --- DEV/DOTFILES -------------------------------------------------------------
-Dotfiles=find $HOME -maxdepth 3 -name ".*" -not -path '*/.git*' -printf '%p\n' | sort
-Shell Scripts=find . -name "*.sh" -type f -executable -printf '%TY-%Tm-%Td %TT %p\n' | sort -r
-Config Files=find /etc -name "*.conf" -o -name "*.cfg" 2>/dev/null | head -50
-Web Files=find . \( -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.ts" \) -print
-Git Changed=git ls-files --modified --others --exclude-standard
+# --- FILE SIZE/AGE (10s timeout for large scans) ------------------------------
+Large Files (>100MB)=timeout 10s find . -maxdepth 6 -type f -size +100M -exec ls -lh {} \\; 2>/dev/null || echo "⚠ Search timeout"
+Huge Files (>1GB)=timeout 10s find . -maxdepth 6 -type f -size +1G -exec ls -lh {} \\; 2>/dev/null || echo "⚠ Search timeout"
+Modified Last 24h=timeout 8s find . -maxdepth 6 -type f -mtime 0 -printf "%TY-%Tm-%Td %TT %p\\n" 2>/dev/null | sort -r || echo "⚠ Search timeout"
+Modified Last Week=timeout 10s find . -maxdepth 6 -type f -mtime -7 -printf "%TY-%Tm-%Td %TT %p\\n" 2>/dev/null | sort -r || echo "⚠ Search timeout"
+Empty Directories=timeout 5s find . -maxdepth 6 -type d -empty -print 2>/dev/null || echo "⚠ Search timeout"
 
-# --- PI-HOLE/DNS --------------------------------------------------------------
-Pi-hole Logs=find /var/log -name "*pihole*" -mmin -1440 2>/dev/null
-DNS Configs=find /etc -name "unbound.conf*" -o -name "dnsmasq.conf*" 2>/dev/null
+# --- PROXMOX (VMs/CTs/ZFS) - 10s timeout for system commands ------------------
+Proxmox VMs=command -v qm >/dev/null && timeout 10s qm list 2>/dev/null | awk 'NR>1{print $1" "$NF}' || echo "⚠ qm not found or timeout"
+Proxmox CTs=command -v pct >/dev/null && timeout 10s pct list 2>/dev/null | awk 'NR>1{print $1" "$NF}' || echo "⚠ pct not found or timeout"
+Proxmox Configs=timeout 5s find /etc/pve -maxdepth 3 -name "*.conf" -type f 2>/dev/null | head -50 || echo "⚠ Search timeout"
+ZFS Datasets=command -v zfs >/dev/null && timeout 10s zfs list -Ho name,mountpoint,used,avail 2>/dev/null || echo "⚠ ZFS not available or timeout"
+ZFS Snapshots=command -v zfs >/dev/null && timeout 15s zfs list -t snapshot -Ho name,used,creation 2>/dev/null | head -50 || echo "⚠ ZFS timeout (many snapshots?)"
+pvetm Status=command -v pvetm >/dev/null && timeout 5s pvetm status --plain 2>/dev/null || echo "⚠ pvetm not found or timeout"
+
+# --- CONTAINERS (Docker/Podman) - 10s timeout for API calls -------------------
+Docker Images=command -v docker >/dev/null && timeout 10s docker images --format "{{.Repository}}:{{.Tag}} ({{.Size}})" 2>/dev/null || echo "⚠ Docker not installed or timeout"
+Docker Containers=command -v docker >/dev/null && timeout 10s docker ps -a --format "table {{.ID}}\\t{{.Names}}\\t{{.Status}}" 2>/dev/null || echo "⚠ Docker timeout"
+Docker Running=command -v docker >/dev/null && timeout 8s docker ps --format "{{.Names}} ({{.Status}})" 2>/dev/null || echo "⚠ Docker timeout"
+Podman Containers=command -v podman >/dev/null && timeout 10s podman ps -a --format "table {{.ID}}\\t{{.Names}}\\t{{.Status}}" 2>/dev/null || echo "⚠ Podman not installed or timeout"
+
+# --- DEVELOPMENT/CODE (8s timeout for deep searches) --------------------------
+Shell Scripts=timeout 8s find . -maxdepth 6 \\( -name "*.sh" -o -name "*.bash" \\) -type f -printf "%TY-%Tm-%Td %TT %p\\n" 2>/dev/null | sort -r || echo "⚠ Search timeout"
+Python Files=timeout 8s find . -maxdepth 6 -name "*.py" -type f -printf "%TY-%Tm-%Td %TT %p\\n" 2>/dev/null | sort -r || echo "⚠ Search timeout"
+JavaScript Files=timeout 8s find . -maxdepth 6 \\( -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" \\) -type f 2>/dev/null || echo "⚠ Search timeout"
+Dotfiles (Home)=timeout 5s find "$HOME" -maxdepth 3 -name ".*" -type f -not -path "*/.git/*" -not -path "*/.cache/*" 2>/dev/null | sort || echo "⚠ Search timeout"
+Config Files=timeout 5s find /etc -maxdepth 3 \\( -name "*.conf" -o -name "*.cfg" -o -name "*.ini" \\) -type f 2>/dev/null | head -50 || echo "⚠ Search timeout"
+
+# --- WEB/FRONTEND (5s timeout) ------------------------------------------------
+HTML/CSS/JS=timeout 5s find . -maxdepth 6 \\( -name "*.html" -o -name "*.css" -o -name "*.scss" \\) -type f 2>/dev/null || echo "⚠ Search timeout"
+Markdown Docs=timeout 5s find . -maxdepth 6 \\( -name "*.md" -o -name "*.mdx" \\) -type f 2>/dev/null || echo "⚠ Search timeout"
+
+# --- LOGS/TROUBLESHOOTING (8s timeout for /var/log access) --------------------
+System Logs (Recent)=timeout 8s find /var/log -maxdepth 3 -type f -mtime -1 -readable -printf "%TY-%Tm-%Td %TT %p\\n" 2>/dev/null | sort -r | head -50 || echo "⚠ Search timeout"
+Error Logs=timeout 5s find /var/log -maxdepth 3 \\( -name "*error*" -o -name "*fail*" \\) 2>/dev/null | head -30 || echo "⚠ Search timeout"
+Pi-hole Logs=timeout 3s find /var/log -maxdepth 2 -name "*pihole*" -type f 2>/dev/null || echo "⚠ Search timeout or Pi-hole not installed"
+
+# --- DNS/NETWORK (3s timeout - quick system check) ----------------------------
+DNS Configs=timeout 3s find /etc -maxdepth 2 \\( -name "unbound.conf*" -o -name "dnsmasq.conf*" -o -name "resolv.conf*" \\) 2>/dev/null || echo "⚠ Search timeout"
+
+# --- PACKAGE FILES (8s timeout) -----------------------------------------------
+Debian Packages=timeout 8s find . -maxdepth 5 -name "*.deb" -type f -exec ls -lh {} \\; 2>/dev/null || echo "⚠ Search timeout"
+Archives (tar/zip)=timeout 8s find . -maxdepth 5 \\( -name "*.tar.gz" -o -name "*.zip" -o -name "*.7z" \\) -type f 2>/dev/null || echo "⚠ Search timeout"
 
 [Colors]
-# --- MODERN DARK THEME -------------------------------------------------------
+# --- COLOR THEME (gotar dark skin) --------------------------------------------
 directory=brightcyan
 executable=brightgreen
 selected=bold,brightwhite
