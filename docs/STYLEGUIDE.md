@@ -1,4 +1,4 @@
-# Dotfiles Framework Style-Guide (v1.5.0) ##
+# Dotfiles Framework Style-Guide (v1.5.1) ##
 
 ## 1. Dateistruktur & Header ##
 
