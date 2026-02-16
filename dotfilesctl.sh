@@ -1,432 +1,195 @@
 #!/usr/bin/env bash
 # --------------------------------------------------------------------------
 # FILE:        dotfilesctl.sh
-# VERSION:     3.6.8
+# VERSION:     3.6.9
 # DESCRIPTION: Dotfiles Framework Controller
 # AUTHOR:      Stony64
 # LAST UPDATE: 2026-02-16
-# CHANGES:     3.6.8 - Fix rm alias conflict with command rm
+# CHANGES:     3.6.9 - Fix reinstall execution flow
 # --------------------------------------------------------------------------
 
 set -euo pipefail
 
-# --- BOOTSTRAP: RESOLVE SCRIPT DIRECTORY --------------------------------------
-# Handle symlinks correctly (e.g., /usr/local/bin/dctl -> /opt/dotfiles/dotfilesctl.sh)
-# shellcheck disable=SC2128
-SCRIPTDIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")
+# --- BOOTSTRAP ----------------------------------------------------------------
+SCRIPTDIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")
 readonly SCRIPTDIR
 
-# --- BOOTSTRAP: LOAD CORE FRAMEWORK -------------------------------------------
 if [[ ! -f "${SCRIPTDIR}/core.sh" ]]; then
     printf '\033[31m[FATAL]\033[0m core.sh not found\n' >&2
-    printf 'Expected: %s/core.sh\n' "${SCRIPTDIR}" >&2
-    printf 'SCRIPTDIR: %s\n' "${SCRIPTDIR}" >&2
     exit 1
 fi
 
-if ! source "${SCRIPTDIR}/core.sh"; then
-    printf '\033[31m[FATAL]\033[0m Failed to load core.sh\n' >&2
-    exit 1
-fi
-# shellcheck source=core.sh
+source "${SCRIPTDIR}/core.sh" || exit 1
 
 # --- CONFIGURATION ------------------------------------------------------------
 readonly DOTFILES_DIR="${DF_REPO_ROOT:-${SCRIPTDIR}}"
-TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
-readonly TIMESTAMP
+readonly TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 readonly BACKUP_DIR="${HOME}/.dotfiles_backups"
 
 # --- HELPER FUNCTIONS ---------------------------------------------------------
 
-# ------------------------------------------------------------------------------
-# show_version
-#
-# Displays framework version from core.sh.
-#
-# Parameters: None
-# Returns: None
-# ------------------------------------------------------------------------------
 show_version() {
     printf 'Dotfiles Framework v%s\n' "${DF_PROJECT_VERSION}"
 }
 
-# ------------------------------------------------------------------------------
-# show_usage
-#
-# Displays usage information and available commands.
-#
-# Parameters: None
-# Returns: None
-# ------------------------------------------------------------------------------
 show_usage() {
     cat <<EOF
 Dotfiles Framework Controller v${DF_PROJECT_VERSION}
 
-Usage: $(basename "$0") <command> [options]
-
 Commands:
-  backup           Create timestamped backup of existing dotfiles
-  install          Backup existing files + deploy framework via symlinks
-  reinstall        Remove existing links + redeploy (clean slate)
-  status           Verify symlink integrity (OK/WRONG/MISSING/FILE)
-  clean [--backup] Remove symlinks (--backup: also remove .bak_* files)
-  version          Show framework version
-  help             Show this help message
+  install      Deploy dotfiles via symlinks
+  reinstall    Remove + redeploy
+  status       Check symlink integrity
+  clean        Remove all symlinks
+  version      Show version
 
 Examples:
-  $(basename "$0") status
-  $(basename "$0") backup
   $(basename "$0") reinstall
-  $(basename "$0") clean --backup
-
-Repository: ${DOTFILES_DIR}
-EOF
-}
-
-# ------------------------------------------------------------------------------
-# show_status_legend
-#
-# Displays color-coded legend for status check output.
-#
-# Parameters: None
-# Returns: None
-# ------------------------------------------------------------------------------
-show_status_legend() {
-    cat <<EOF
-Status Legend:
-  ${DF_C_GREEN}[OK]${DF_C_RESET}      Symlink correct (points to repository)
-  ${DF_C_RED}[ERR]${DF_C_RESET}     WRONG target (symlink points elsewhere)
-  ${DF_C_RED}[ERR]${DF_C_RESET}     MISSING (symlink should exist but doesn't)
-  ${DF_C_YELLOW}[! ]${DF_C_RESET}     BLOCKED (regular file exists, preventing symlink)
-
+  $(basename "$0") status
 EOF
 }
 
 # --- CORE FUNCTIONS -----------------------------------------------------------
 
-# ------------------------------------------------------------------------------
-# backup_dotfiles
-#
-# Creates timestamped backup of existing dotfiles in $HOME.
-# Creates tarball in $BACKUP_DIR, removes temporary directory after compression.
-# Uses subshell for cd to maintain working directory.
-# Checks for tar availability before attempting backup.
-#
-# Parameters: None
-# Returns: 0 success, 1 failure
-# ------------------------------------------------------------------------------
-backup_dotfiles() {
-    local backup_root="${BACKUP_DIR:?}"
-    local timestamp="${TIMESTAMP:?}"
-    local current_backup_dir="${backup_root}/${timestamp}"
-
-    # Check if tar is available
-    if ! command -v tar >/dev/null 2>&1; then
-        df_log_error "tar not found - backup skipped (install: apt install tar)"
-        return 1
-    fi
-
-    df_log_info "Creating backup in ${backup_root}..."
-    mkdir -p "${current_backup_dir}" || {
-        df_log_error "Failed to create backup directory"
-        return 1
-    }
-
-    # Files to backup (comprehensive list)
-    local targets=(
-        ".bashrc"
-        ".bash_profile"
-        ".bashenv"
-        ".bashaliases"
-        ".bashfunctions"
-        ".bashprompt"
-        ".bashwartung"
-        ".dircolors"
-        ".nanorc"
-        ".gitconfig"
-        ".vimrc"
-        ".tmux.conf"
-    )
-
-    local backed_up=0
-    for target in "${targets[@]}"; do
-        if [[ -f "${HOME}/${target}" ]]; then
-            if cp -L "${HOME}/${target}" "${current_backup_dir}/${target}" 2>/dev/null; then
-                df_log_info "Backed up: ${target}"
-                ((backed_up++))
-            else
-                df_log_warn "Failed to copy: ${target}"
-            fi
-        fi
-    done
-
-    if [[ ${backed_up} -eq 0 ]]; then
-        df_log_warn "No files found to backup."
-        command rm -rf "${current_backup_dir}" 2>/dev/null || true
-        return 0
-    fi
-
-    # Use subshell for cd to maintain working directory
-    if (cd "${backup_root}" && tar czf "backup-${timestamp}.tar.gz" "${timestamp}" 2>/dev/null); then
-        command rm -rf "${current_backup_dir}"
-        local backup_size
-        backup_size=$(du -sh "${backup_root}/backup-${timestamp}.tar.gz" 2>/dev/null | cut -f1)
-        df_log_success "Backup created: backup-${timestamp}.tar.gz (${backed_up} files, ${backup_size})"
-        return 0
-    else
-        df_log_error "Backup creation failed!"
-        return 1
-    fi
-}
-
-# ------------------------------------------------------------------------------
-# deploy_dotfiles
-#
-# Deploys dotfiles from repository to $HOME via symlinks.
-# Backs up existing files with timestamp suffix.
-# Idempotent: Can be run multiple times safely.
-#
-# Parameters: None
-# Returns: 0 success, 1 failure
-# ------------------------------------------------------------------------------
 deploy_dotfiles() {
     local src_dir="${DOTFILES_DIR}/home"
-    local timestamp="${TIMESTAMP:?}"
-    local deployed_count=0
-    local skipped_count=0
+    local count=0
 
-    df_log_info "Deploying dotfiles from ${src_dir}..."
+    df_log_info "Deploying from ${src_dir}..."
 
     if [[ ! -d "${src_dir}" ]]; then
-        df_log_error "Source directory '${src_dir}' does not exist!"
+        df_log_error "Directory not found: ${src_dir}"
         return 1
     fi
 
-    # Enable dotglob to match hidden files
     shopt -s dotglob nullglob
 
     for src in "${src_dir}"/*; do
-        local filename
-        filename="$(basename "${src}")"
-
-        # Skip backup files
-        if [[ "${filename}" == *.bak* ]]; then
-            continue
-        fi
-
         # Skip directories
         if [[ -d "${src}" ]]; then
             continue
         fi
 
-        local dest="${HOME}/${filename}"
-
-        # Backup existing file (not link)
-        if [[ -e "${dest}" && ! -L "${dest}" ]]; then
-            local backup_name="${dest}.bak_${timestamp}"
-            if mv "${dest}" "${backup_name}" 2>/dev/null; then
-                df_log_warn "Backed up existing: ${filename} → $(basename "${backup_name}")"
-            else
-                df_log_error "Failed to backup: ${filename}"
-                ((skipped_count++))
-                continue
-            fi
-        fi
-
-        # Remove old symlink if exists (USE command rm to bypass alias!)
-        if [[ -L "${dest}" ]]; then
-            command rm -f "${dest}"
-        fi
-
-        # Create symlink
-        if ln -sf "${src}" "${dest}" 2>/dev/null; then
-            df_log_success "Linked: ${filename}"
-            ((deployed_count++))
-        else
-            df_log_error "Failed to link: ${filename}"
-            ((skipped_count++))
-        fi
-    done
-
-    shopt -u dotglob nullglob
-
-    # Summary
-    echo ""
-    df_log_success "Deployment complete: ${deployed_count} files linked"
-    if [[ ${skipped_count} -gt 0 ]]; then
-        df_log_warn "Skipped: ${skipped_count} files"
-    fi
-
-    return 0
-}
-
-# ------------------------------------------------------------------------------
-# check_status
-#
-# Verifies integrity of symlinks from repository to $HOME.
-# Reports status for each file: OK/WRONG/MISSING/BLOCKED.
-# Displays color-coded legend at the beginning.
-#
-# Parameters: None
-# Returns: 0 if all clean, error count otherwise
-# ------------------------------------------------------------------------------
-check_status() {
-    local ok_count=0
-    local error_count=0
-    local target_dir="${HOME}"
-    local source_dir="${DOTFILES_DIR}/home"
-
-    df_log_info "Integrity check: Repo → ${target_dir}"
-    echo ""
-
-    # Show legend
-    show_status_legend
-
-    shopt -s dotglob nullglob
-    for source in "${source_dir}"/*; do
-        local filename
-        filename="$(basename "${source}")"
-
-        # Skip directories
-        if [[ -d "${source}" ]]; then
+        # Skip backups
+        if [[ "$(basename "${src}")" == *.bak* ]]; then
             continue
         fi
 
-        local target_file="${target_dir}/${filename}"
+        local dest="${HOME}/$(basename "${src}")"
 
-        if [[ -L "${target_file}" ]]; then
-            local link_target
-            link_target=$(readlink "${target_file}")
-            if [[ "${link_target}" == "${source}" ]]; then
-                df_log_success "${filename}"
-                ((ok_count++))
-            else
-                df_log_error "WRONG: ${filename} → ${link_target}"
-                ((error_count++))
-            fi
-        elif [[ -e "${target_file}" ]]; then
-            df_log_warn "BLOCKED: ${filename} (regular file exists)"
-            ((error_count++))
+        # Remove old symlink
+        if [[ -L "${dest}" ]]; then
+            command rm -f "${dest}" || true
+        fi
+
+        # Create new symlink
+        if ln -sf "${src}" "${dest}"; then
+            df_log_success "Linked: $(basename "${src}")"
+            ((count++)) || true
         else
-            df_log_error "MISSING: ${filename}"
-            ((error_count++))
+            df_log_error "Failed: $(basename "${src}")"
         fi
     done
+
     shopt -u dotglob nullglob
 
-    echo ""
-    if [[ ${error_count} -eq 0 ]]; then
-        df_log_success "Status: All ${ok_count} links OK"
-        return 0
-    else
-        df_log_error "Status: ${error_count} issue(s) found, ${ok_count} OK"
-        return 1
-    fi
+    printf '\n'
+    df_log_success "Deployed ${count} files"
+    return 0
 }
 
-# ------------------------------------------------------------------------------
-# remove_links
-#
-# Removes all symlinks pointing to repository from $HOME.
-# Optionally removes .bak_* backup files if --backup flag is set.
-# Used for clean reinstall or cleanup.
-#
-# Parameters: $1 - Optional: "--backup" to also remove backup files
-# Returns: None
-# ------------------------------------------------------------------------------
 remove_links() {
-    local remove_backups=false
-    local removed_links=0
-    local removed_backups=0
+    local src_dir="${DOTFILES_DIR}/home"
+    local count=0
 
-    if [[ "${1:-}" == "--backup" ]]; then
-        remove_backups=true
-    fi
-
-    df_log_warn "Removing existing symlinks..."
+    df_log_warn "Removing symlinks..."
 
     shopt -s dotglob nullglob
-    for src in "${DOTFILES_DIR}/home"/*; do
-        local filename
-        filename="$(basename "${src}")"
-        local target="${HOME}/${filename}"
 
-        # Remove symlink if it exists (USE command rm to bypass alias!)
-        if [[ -L "${target}" ]]; then
-            if command rm -f "${target}" 2>/dev/null; then
-                df_log_info "Removed link: ${filename}"
-                ((removed_links++))
-            else
-                df_log_warn "Failed to remove link: ${filename}"
+    for src in "${src_dir}"/*; do
+        if [[ -d "${src}" ]]; then
+            continue
+        fi
+
+        local dest="${HOME}/$(basename "${src}")"
+
+        if [[ -L "${dest}" ]]; then
+            if command rm -f "${dest}"; then
+                df_log_info "Removed: $(basename "${src}")"
+                ((count++)) || true
             fi
         fi
-
-        # Remove backup files if requested
-        if [[ "${remove_backups}" == true ]]; then
-            # Find all .bak_* files for this filename
-            for backup in "${HOME}/${filename}".bak_*; do
-                if [[ -e "${backup}" ]]; then
-                    if command rm -f "${backup}" 2>/dev/null; then
-                        df_log_info "Removed backup: $(basename "${backup}")"
-                        ((removed_backups++))
-                    else
-                        df_log_warn "Failed to remove backup: $(basename "${backup}")"
-                    fi
-                fi
-            done
-        fi
     done
+
     shopt -u dotglob nullglob
 
-    # Summary
-    echo ""
-    df_log_success "Removed: ${removed_links} symlinks"
-    if [[ ${removed_backups} -gt 0 ]]; then
-        df_log_success "Removed: ${removed_backups} backup files"
-    fi
+    printf '\n'
+    df_log_success "Removed ${count} symlinks"
+    return 0
+}
 
-    # Warn about remaining backups if not removed
-    if [[ "${remove_backups}" == false ]]; then
-        local backup_count
-        backup_count=$(find "${HOME}" -maxdepth 1 -name ".*.bak_*" 2>/dev/null | wc -l)
-        if [[ ${backup_count} -gt 0 ]]; then
-            df_log_warn "${backup_count} backup file(s) remain (use 'clean --backup' to remove)"
+check_status() {
+    local src_dir="${DOTFILES_DIR}/home"
+    local ok=0
+    local err=0
+
+    df_log_info "Status Check: ${src_dir} → ${HOME}"
+    printf '\n'
+
+    shopt -s dotglob nullglob
+
+    for src in "${src_dir}"/*; do
+        if [[ -d "${src}" ]]; then
+            continue
         fi
+
+        local dest="${HOME}/$(basename "${src}")"
+
+        if [[ -L "${dest}" ]]; then
+            local target
+            target=$(readlink "${dest}")
+            if [[ "${target}" == "${src}" ]]; then
+                df_log_success "$(basename "${src}")"
+                ((ok++)) || true
+            else
+                df_log_error "WRONG: $(basename "${src}")"
+                ((err++)) || true
+            fi
+        else
+            df_log_error "MISSING: $(basename "${src}")"
+            ((err++)) || true
+        fi
+    done
+
+    shopt -u dotglob nullglob
+
+    printf '\n'
+    if [[ ${err} -eq 0 ]]; then
+        df_log_success "All ${ok} links OK"
+        return 0
+    else
+        df_log_error "${err} issues, ${ok} OK"
+        return 1
     fi
 }
 
 # --- MAIN EXECUTION -----------------------------------------------------------
 
 case "${1:-help}" in
-    backup)
-        backup_dotfiles
-        ;;
-
     install)
-        df_log_info "Starting installation..."
-
-        # Backup is optional - errors won't stop installation
-        set +e
-        backup_dotfiles
-        backup_exit_code=$?
-        set -e
-
-        if [[ ${backup_exit_code} -ne 0 ]]; then
-            df_log_warn "Backup failed or no files found - continuing with installation"
-        fi
-
         deploy_dotfiles
-        echo ""
-        df_log_success "Installation complete. Run 'source ~/.bashrc' to activate."
+        printf '\n'
+        df_log_success "Done. Run: exec bash"
         ;;
 
     reinstall)
-        df_log_warn "Reinstalling (removing existing links)..."
+        df_log_warn "Reinstalling..."
+        printf '\n'
         remove_links
-        echo ""
+        printf '\n'
         deploy_dotfiles
-        echo ""
-        df_log_success "Reinstallation complete. Run 'source ~/.bashrc' to activate."
+        printf '\n'
+        df_log_success "Done. Run: exec bash"
         ;;
 
     status)
@@ -434,12 +197,7 @@ case "${1:-help}" in
         ;;
 
     clean)
-        # Parse --backup flag
-        if [[ "${2:-}" == "--backup" ]]; then
-            remove_links --backup
-        else
-            remove_links
-        fi
+        remove_links
         ;;
 
     version)
@@ -451,8 +209,7 @@ case "${1:-help}" in
         ;;
 
     *)
-        df_log_error "Unknown command: $1"
-        echo ""
+        df_log_error "Unknown command: ${1}"
         show_usage
         exit 1
         ;;
