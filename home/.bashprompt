@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # ------------------------------------------------------------------------------
 # FILE:        home/.bashprompt
-# VERSION:     3.6.6
+# VERSION:     3.6.7
 # DESCRIPTION: Git-Aware PS1 Prompt with Exit Code & Branch Status
 # AUTHOR:      Stony64
-# CHANGES:     v3.6.6 - Added idempotency guard, robustified PROMPT_COMMAND
+# LAST UPDATE: 2026-02-16
+# CHANGES:     v3.6.7 - Fix ANSI escape sequences with $'...' quoting
 # ------------------------------------------------------------------------------
 
 # ShellCheck configuration
@@ -16,23 +17,28 @@
 readonly DF_BASHPROMPT_LOADED=1
 
 # --- COLOR DEFINITIONS --------------------------------------------------------
-# Pure ANSI colors for use in functions (printf)
+# Pure ANSI colors for use in functions (printf/echo)
+# Uses $'...' ANSI-C quoting to properly interpret escape sequences
 # No \[ \] here - those are only for PS1 string itself
 
-readonly C_RED='\033[31m'
-readonly C_GREEN='\033[32m'
-readonly C_BLUE='\033[34m'
-readonly C_CYAN='\033[36m'
-readonly C_YELLOW='\033[33m'
-readonly C_MAGENTA='\033[35m'
-readonly C_RESET='\033[0m'
+readonly C_RED=$'\033[31m'
+readonly C_GREEN=$'\033[32m'
+readonly C_BLUE=$'\033[34m'
+readonly C_CYAN=$'\033[36m'
+readonly C_YELLOW=$'\033[33m'
+readonly C_MAGENTA=$'\033[35m'
+readonly C_RESET=$'\033[0m'
 
 # PS1-masked colors (with \[ \] for proper line wrapping)
-readonly P_BLUE='\[\033[34m\]'
-readonly P_GREEN='\[\033[32m\]'
-readonly P_CYAN='\[\033[36m\]'
-readonly P_RED='\[\033[31m\]'
-readonly P_RESET='\[\033[0m\]'
+# These are for static parts of PS1 only
+readonly P_BLUE=$'\[\033[34m\]'
+readonly P_GREEN=$'\[\033[32m\]'
+readonly P_CYAN=$'\[\033[36m\]'
+readonly P_RED=$'\[\033[31m\]'
+readonly P_RESET=$'\[\033[0m\]'
+
+# Export C_* colors for use in other scripts
+export C_RED C_GREEN C_BLUE C_CYAN C_YELLOW C_MAGENTA C_RESET
 
 # --- GIT STATUS FUNCTION ------------------------------------------------------
 
@@ -69,7 +75,7 @@ df_prompt_git() {
     [[ -z "$branch" ]] && return 0
 
     # Check for uncommitted changes (dirty working tree)
-    if ! git diff --quiet 2>/dev/null; then
+    if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
         dirty="${C_YELLOW}*"
     fi
 
@@ -95,6 +101,7 @@ df_prompt_git() {
     fi
 
     # Return formatted Git status
+    # Note: No \[ \] here - these are interpreted when PS1 is rendered
     printf ' %s(%s%s%s%s)%s' \
         "${C_RESET}" \
         "${C_YELLOW}${branch}" \
