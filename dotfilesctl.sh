@@ -5,7 +5,7 @@
 # DESCRIPTION: Dotfiles Framework Controller
 # AUTHOR:      Stony64
 # LAST UPDATE: 2026-02-16
-# CHANGES:     3.6.7 - Fix symlink resolution + remove duplicate source
+# CHANGES:     3.6.7 - Fix set -e compatibility with && continue patterns
 # --------------------------------------------------------------------------
 
 set -euo pipefail
@@ -74,9 +74,9 @@ Commands:
   help             Show this help message
 
 Examples:
-  sudo $(basename "$0") install root
   $(basename "$0") status
   $(basename "$0") backup
+  $(basename "$0") reinstall
   $(basename "$0") clean --backup
 
 Repository: ${DOTFILES_DIR}
@@ -202,15 +202,22 @@ deploy_dotfiles() {
         return 1
     fi
 
+    # Enable dotglob to match hidden files
     shopt -s dotglob nullglob
 
     for src in "${src_dir}"/*; do
         local filename
-        filename="$(basename "$src")"
+        filename="$(basename "${src}")"
 
-        # Skip backup files and directories
-        [[ "${filename}" == *.bak* ]] && continue
-        [[ -d "${src}" ]] && continue
+        # Skip backup files - USE IF instead of && to avoid set -e issues
+        if [[ "${filename}" == *.bak* ]]; then
+            continue
+        fi
+
+        # Skip directories - USE IF instead of && to avoid set -e issues
+        if [[ -d "${src}" ]]; then
+            continue
+        fi
 
         local dest="${HOME}/${filename}"
 
@@ -226,8 +233,13 @@ deploy_dotfiles() {
             fi
         fi
 
-        # Create symlink
-        if ln -snf "${src}" "${dest}" 2>/dev/null; then
+        # Remove old symlink if exists
+        if [[ -L "${dest}" ]]; then
+            rm -f "${dest}"
+        fi
+
+        # Create symlink (removed -n flag for better compatibility)
+        if ln -sf "${src}" "${dest}" 2>/dev/null; then
             df_log_success "Linked: ${filename}"
             ((deployed_count++))
         else
@@ -241,7 +253,9 @@ deploy_dotfiles() {
     # Summary
     echo ""
     df_log_success "Deployment complete: ${deployed_count} files linked"
-    [[ ${skipped_count} -gt 0 ]] && df_log_warn "Skipped: ${skipped_count} files"
+    if [[ ${skipped_count} -gt 0 ]]; then
+        df_log_warn "Skipped: ${skipped_count} files"
+    fi
 
     return 0
 }
@@ -271,10 +285,12 @@ check_status() {
     shopt -s dotglob nullglob
     for source in "${source_dir}"/*; do
         local filename
-        filename="$(basename "$source")"
+        filename="$(basename "${source}")"
 
-        # Skip directories (like .config)
-        [[ -d "${source}" ]] && continue
+        # Skip directories (like .config) - USE IF instead of && to avoid set -e issues
+        if [[ -d "${source}" ]]; then
+            continue
+        fi
 
         local target_file="${target_dir}/${filename}"
 
@@ -323,14 +339,16 @@ remove_links() {
     local removed_links=0
     local removed_backups=0
 
-    [[ "${1:-}" == "--backup" ]] && remove_backups=true
+    if [[ "${1:-}" == "--backup" ]]; then
+        remove_backups=true
+    fi
 
     df_log_warn "Removing existing symlinks..."
 
     shopt -s dotglob nullglob
     for src in "${DOTFILES_DIR}/home"/*; do
         local filename
-        filename="$(basename "$src")"
+        filename="$(basename "${src}")"
         local target="${HOME}/${filename}"
 
         # Remove symlink if it exists
@@ -363,7 +381,9 @@ remove_links() {
     # Summary
     echo ""
     df_log_success "Removed: ${removed_links} symlinks"
-    [[ ${removed_backups} -gt 0 ]] && df_log_success "Removed: ${removed_backups} backup files"
+    if [[ ${removed_backups} -gt 0 ]]; then
+        df_log_success "Removed: ${removed_backups} backup files"
+    fi
 
     # Warn about remaining backups if not removed
     if [[ "${remove_backups}" == false ]]; then
