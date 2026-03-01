@@ -298,20 +298,47 @@ check_status() {
 }
 
 install_single_user() {
-    local target_user="${1}"
-    local orig_home="${HOME}"
+    local target_user="${1:?User required}"
+    local target_home
+    local orig_home
 
-    HOME="$(get_user_home "${target_user}")" || return 1
-    df_log_info "Target: ${target_user} → ${HOME}"
+    # Resolve the real home directory for the target user (LDAP/AD/local compatible)
+    target_home="$(get_user_home "${target_user}")" || return 1
 
+    df_log_info "Target: ${target_user} → ${target_home}"
+
+    # Preserve caller HOME (important when running via sudo)
+    orig_home="${HOME}"
+
+    # Export HOME so all called functions reliably use the target user's home
+    export HOME="${target_home}"
+
+    # Backup is optional: do not abort installation if backup fails
     set +e
     backup_dotfiles
     set -e
 
+    # Deploy dotfiles/configs for this HOME
     deploy_dotfiles
     deploy_extra_configs
 
-    HOME="${orig_home}"
+    # If we are root, fix ownership so the user can actually use the files
+    if [[ ${EUID} -eq 0 ]]; then
+        local target_group
+        target_group="$(id -gn "${target_user}" 2>/dev/null || true)"
+
+        if [[ -n "${target_group}" ]]; then
+            [[ -e "${HOME}/.nanorc" ]] && chown "${target_user}:${target_group}" "${HOME}/.nanorc" 2>/dev/null || true
+            [[ -d "${HOME}/.config" ]] && chown -R "${target_user}:${target_group}" "${HOME}/.config" 2>/dev/null || true
+
+            # Best-effort: ensure top-level dotfiles in HOME are owned by the user
+            find "${HOME}" -maxdepth 1 -name ".*" ! -name "." ! -name ".." -exec chown -h "${target_user}:${target_group}" {} + 2>/dev/null || true
+        fi
+    fi
+
+    # Restore original HOME for the caller
+    export HOME="${orig_home}"
+
     df_log_success "Done: ${target_user}"
 }
 
