@@ -264,7 +264,7 @@ set positionlog
 #     2. Press Alt+W → Jump to next occurrence
 #     3. Repeat Alt+W to keep finding
 #   Alternative: Ctrl+F, Enter (searches again for same term)
-set searchagain
+# set searchagain
 
 
 # --- BACKUP/SAFETY ------------------------------------------------------------
@@ -303,7 +303,7 @@ set backup
 #     - No clutter in original directories
 #     - Easy to clean all backups (rm -rf ~/.nano/backups/*)
 #     - Easy to find old versions
-set backupdir ~/.nano/backups
+# set backupdir ~/.nano/backups
 # Create directory: mkdir -p ~/.nano/backups
 
 
@@ -342,7 +342,7 @@ set boldtext
 #     - Quick shell access without closing file
 #     - Check command syntax, test script, view logs
 #   Without: Must save, quit, run command, reopen (tedious)
-set suspendenable
+# set suspendenable
 
 # set smarthome
 #   Make Home key jump to first non-whitespace character
