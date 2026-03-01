@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # --------------------------------------------------------------------------
-# FILE:        dotfilesctl.sh
-# VERSION:     3.6.9
-# DESCRIPTION: Dotfiles Framework Controller
-# AUTHOR:      Stony64
-# LAST UPDATE: 2026-02-16
-# CHANGES:     3.6.9 - ShellCheck compliant version with inline comments
+# FILE:           dotfilesctl.sh
+# VERSION:        3.7.0
+# DESCRIPTION:    Dotfiles Framework Controller
+# AUTHOR:         Stony64
+# LAST UPDATE:    2026-03-01
+# CHANGES:        3.7.0 - .nanorc als Copy (nicht Symlink) + erweiterte extra_configs
 # --------------------------------------------------------------------------
 
 # Exit on error, undefined variables, pipe failures
@@ -52,7 +52,7 @@ Usage: $(basename "$0") <command> [options]
 
 Commands:
   backup           Create timestamped backup of existing dotfiles
-  install          Deploy dotfiles via symlinks
+  install          Deploy dotfiles via symlinks (+ copies for special files)
   reinstall        Remove existing links + redeploy
   status           Verify symlink integrity
   clean [--backup] Remove symlinks (--backup: also remove .bak_* files)
@@ -154,6 +154,7 @@ backup_dotfiles() {
 # Deploys dotfiles from repository to $HOME via symlinks.
 # Backs up existing regular files with .bak_TIMESTAMP suffix.
 # Idempotent: Can be run multiple times safely.
+# SKIPS .nanorc (handled by deploy_extra_configs as copy)
 #
 # Returns: 0 on success, 1 on failure
 # ------------------------------------------------------------------------------
@@ -187,6 +188,13 @@ deploy_dotfiles() {
 
         # Skip backup files (*.bak_*)
         if [[ "${filename}" == *.bak* ]]; then
+            continue
+        fi
+
+        # SKIP .nanorc - handled as COPY in deploy_extra_configs
+        if [[ "${filename}" == ".nanorc" ]]; then
+            df_log_info "Skipped .nanorc (using copy method)"
+            ((skipped++)) || true
             continue
         fi
 
@@ -231,9 +239,24 @@ deploy_dotfiles() {
 # deploy_extra_configs
 #
 # Copies configuration files for which symlinks must not be used.
+# ENHANCED: .nanorc + full ~/.config/ copy (hard overwrite)
 # ------------------------------------------------------------------------------
 deploy_extra_configs() {
     local cfg_src_dir="${DOTFILES_DIR}/config"
+
+    # .nanorc: Copy to ~ (not symlink - nano compatibility)
+    if [[ -f "${cfg_src_dir}/nanorc" ]]; then
+        # Backup existing .nanorc if regular file
+        if [[ -f "${HOME}/.nanorc" && ! -L "${HOME}/.nanorc" ]]; then
+            local backup="${HOME}/.nanorc.bak_${TIMESTAMP}"
+            mv "${HOME}/.nanorc" "${backup}"
+            df_log_warn "Backed up: .nanorc → $(basename "${backup}")"
+        fi
+        # Remove symlink if exists
+        [[ -L "${HOME}/.nanorc" ]] && command rm -f "${HOME}/.nanorc"
+        cp "${cfg_src_dir}/nanorc" "${HOME}/.nanorc"
+        df_log_success "Copied .nanorc → ~/.nanorc"
+    fi
 
     # mc: ~/.config/mc/ini
     if [[ -f "${cfg_src_dir}/mc/ini" ]]; then
@@ -245,12 +268,19 @@ deploy_extra_configs() {
     # micro: ~/.config/micro/*
     if [[ -d "${cfg_src_dir}/micro" ]]; then
         mkdir -p "${HOME}/.config/micro"
-        # optionally back up or overwrite existing files – here: force overwrite
-        cp -r "${cfg_src_dir}/micro/." "${HOME}/.config/micro/"
+        # Force overwrite existing files
+        cp -rf "${cfg_src_dir}/micro/." "${HOME}/.config/micro/"
         df_log_success "Copied micro config to ~/.config/micro/"
     fi
-}
 
+    # FULL ~/.config/ copy (all other configs - hard overwrite)
+    if [[ -d "${cfg_src_dir}" ]]; then
+        mkdir -p "${HOME}/.config"
+        # Backup existing .config if needed? → No, hard overwrite per preference
+        cp -rf "${cfg_src_dir}/." "${HOME}/.config/"
+        df_log_success "Copied full config/ → ~/.config/ (hard overwrite)"
+    fi
+}
 
 # ------------------------------------------------------------------------------
 # remove_links
@@ -340,6 +370,7 @@ remove_links() {
 #
 # Verifies integrity of symlinks from repository to $HOME.
 # Reports status for each file: OK/WRONG/MISSING/BLOCKED.
+# .nanorc: Special check for copy (FILE, not symlink)
 #
 # Returns: 0 if all clean, 1 if issues found
 # ------------------------------------------------------------------------------
@@ -367,7 +398,19 @@ check_status() {
 
         local dest="${HOME}/${filename}"
 
-        # Check symlink status
+        # Special handling for .nanorc (should be FILE, not symlink)
+        if [[ "${filename}" == ".nanorc" ]]; then
+            if [[ -f "${dest}" && ! -L "${dest}" ]]; then
+                df_log_success "${filename} (copy OK)"
+                ((ok++)) || true
+            else
+                df_log_error "${filename}: MISSING or WRONG (expect FILE)"
+                ((err++)) || true
+            fi
+            continue
+        fi
+
+        # Check symlink status for others
         if [[ -L "${dest}" ]]; then
             # Symlink exists - verify it points to repository
             local target
