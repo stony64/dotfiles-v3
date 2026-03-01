@@ -350,23 +350,51 @@ case "${1:-help}" in
         ;;
 
     install)
+        # Handle multi-user deployment if --all flag is provided
         if [[ "${2:-}" == "--all" ]]; then
             df_log_info "Starting multi-user installation..."
+
+            # Fetch all valid real users dynamically
             mapfile -t users < <(list_real_users)
+
             for user in "${users[@]}"; do
+                df_log_info "Processing user: ${user}"
                 install_single_user "${user}"
+                printf '\n'
             done
         else
+            # Single user deployment (defaults to current user running the script)
             df_log_info "Starting installation for ${USER}..."
             install_single_user "${USER}"
         fi
         ;;
 
     reinstall)
-        df_log_warn "Reinstalling..."
-        remove_links
-        deploy_dotfiles
-        deploy_extra_configs
+        df_log_warn "Reinstalling dotfiles..."
+        printf '\n'
+
+        if [[ "${2:-}" == "--all" ]]; then
+            mapfile -t users < <(list_real_users)
+            for user in "${users[@]}"; do
+                df_log_warn "Reinstalling for ${user}..."
+
+                # Temporarily export HOME for removal process
+                orig_home="${HOME}"
+                export HOME="$(get_user_home "${user}")"
+                remove_links
+                export HOME="${orig_home}"
+
+                # Proceed with fresh installation
+                install_single_user "${user}"
+                printf '\n'
+            done
+        else
+            remove_links
+            printf '\n'
+            deploy_dotfiles
+            deploy_extra_configs
+        fi
+        df_log_success "Reinstallation complete."
         ;;
 
     status)
@@ -374,6 +402,7 @@ case "${1:-help}" in
         ;;
 
     clean)
+        # Parse optional --backup flag
         if [[ "${2:-}" == "--backup" ]]; then
             remove_links --backup
         else
