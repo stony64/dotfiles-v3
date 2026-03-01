@@ -18,7 +18,7 @@ readonly DF_CORE_LOADED=1
 # - GitHub Actions: parsed via awk (release.yml)
 # - Shell components: sourced via core.sh
 # - Validation: scripts/check-version-consistency.sh
-export DF_PROJECT_VERSION="3.7.0"
+export DF_PROJECT_VERSION="3.8.0"
 
 # Repository root directory (overridable via environment)
 export DF_REPO_ROOT="${DF_REPO_ROOT:-/opt/dotfiles}"
